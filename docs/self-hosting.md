@@ -4,6 +4,8 @@
 - Docker + Docker Compose v2, 2 vCPU / 4 GB RAM is plenty for a household or a small organisation
 - A domain name and a TLS reverse proxy (Caddy, nginx, Traefik)
 
+No server? See [Deploy on Render + Neon (free tier)](deploy-render-neon.md).
+
 ## Install
 ```bash
 git clone https://github.com/hearth-family-finance/hearth-family-finance.git

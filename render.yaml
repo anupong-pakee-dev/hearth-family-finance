@@ -1,0 +1,31 @@
+# Render Blueprint — free-tier deploy with a Neon (or any hosted) PostgreSQL database.
+# See docs/deploy-render-neon.md. Values marked "sync: false" are entered in the Render dashboard
+# on first deploy and are never stored in this repository.
+services:
+  - type: web
+    name: hearth
+    runtime: docker
+    plan: free
+    region: singapore          # keep the same region as the Neon project (aws-ap-southeast-1)
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /healthz
+    envVars:
+      # Neon "direct" connection string (host WITHOUT "-pooler"), e.g.
+      # postgresql://neondb_owner:***@ep-xxx.ap-southeast-1.aws.neon.tech/neondb?sslmode=require
+      - key: DATABASE_URL
+        sync: false
+      # "id:<32 random bytes base64>" — generate locally, keep an offline copy. Losing it = losing the data.
+      - key: HEARTH_MASTER_KEYS
+        sync: false
+      # Public URL, e.g. https://hearth-xxxx.onrender.com or your custom domain
+      - key: HEARTH_BASE_URL
+        sync: false
+      - key: HEARTH_TRUST_PROXY
+        value: "true"
+      # Neon free tier has a small connection budget; one instance needs only a few.
+      - key: PG_POOL_MAX
+        value: "5"
+      # The container disk is ephemeral on Render free, so file backups would be lost on restart.
+      # Rely on Neon's restore window + Settings → Export instead.
+      - key: HEARTH_BACKUP_INTERVAL_HOURS
+        value: "0"
