@@ -48,7 +48,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: OSV-Scanner (fails on High/Critical)
-        uses: google/osv-scanner-action/osv-scanner-action@v2.0.0
+        uses: google/osv-scanner-action/osv-scanner-action@v2.7.1
         with: { scan-args: "--lockfile=package-lock.json" }
       - uses: actions/setup-node@v4
         with: { node-version: 24, cache: npm }
