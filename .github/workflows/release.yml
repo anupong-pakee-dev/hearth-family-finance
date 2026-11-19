@@ -26,7 +26,7 @@ jobs:
           provenance: mode=max
       - uses: sigstore/cosign-installer@v3
       - run: cosign sign --yes ghcr.io/${{ github.repository }}@${{ steps.push.outputs.digest }}
-      - uses: actions/attest-build-provenance@v2
+      - uses: actions/attest-build-provenance@v4
         with: { subject-name: "ghcr.io/${{ github.repository }}", subject-digest: "${{ steps.push.outputs.digest }}", push-to-registry: true }
 
   dast:
