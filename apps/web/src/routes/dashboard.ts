@@ -60,11 +60,26 @@ get('/', { access: 'auth' }, async (ctx) => {
   if (!hidden.has('networth')) stats.push(stat(t('dash.net_worth'), f.moneyHtml(nw.netWorth), html`${t('dash.assets')} ${f.money(nw.assets)} · ${t('dash.liabilities')} ${f.money(nw.liabilities)}`, nw.netWorth < 0n ? 'bad' : undefined));
   if (p.bucket_mode === 'full') stats.push(stat(t('bucket.to_allocate'), f.moneyHtml(data.toAllocate), data.toAllocate !== 0n ? html`<a href="/buckets">${t('bucket.allocate_now')}</a>` : t('bucket.all_allocated'), data.toAllocate !== 0n ? 'warn' : 'ok'));
   if (p.investment_enabled && data.inv && !hidden.has('invest')) stats.push(stat(t('dash.portfolio'), f.moneyHtml(data.inv.value), html`${t('invest.unrealized')} ${f.moneyHtml(data.inv.unrealized, { sign: true })}`));
+  // Hero: the one number a family checks most — what is left to spend this cycle, and at what pace.
   if (!hidden.has('month')) {
-    stats.push(stat(t('dash.income_month'), f.moneyHtml(tot.income), `${f.date(cyc.start)} – ${f.date(cyc.end)}`));
-    stats.push(stat(t('dash.expense_month'), f.moneyHtml(tot.expense)));
-    stats.push(stat(t('dash.left_month'), f.moneyHtml(left), undefined, left < 0n ? 'bad' : 'ok'));
-    stats.push(stat(t('dash.savings_rate'), f.privacy ? '•••' : f.pct(sr), t('dash.savings_rate_hint'), sr >= 0.2 ? 'ok' : sr >= 0.1 ? 'warn' : 'bad'));
+    const daysLeft = Math.max(1, Math.round((Date.parse(cyc.end) - Date.parse(today)) / 86_400_000) + 1);
+    const spent = tot.income > 0n ? Number((tot.expense * 1000n) / tot.income) / 1000 : 0;
+    const spentPct = f.privacy ? '•••' : f.pct(spent);
+    const perDay = left > 0n ? left / BigInt(daysLeft) : 0n;
+    const inc = toMajorNumber(tot.income);
+    cards.push(html`<section class="hero" aria-label="${t('dash.left_to_spend')}">
+      <div class="hero-main">
+        <span class="hero-label">${t('dash.left_to_spend')} · ${f.date(cyc.start)} – ${f.date(cyc.end)}</span>
+        <strong class="hero-amount ${left < 0n ? 'neg' : ''}">${f.moneyHtml(left)}<small>${t('dash.of_income', { amount: f.money(tot.income) })}</small></strong>
+        ${tot.income > 0n ? meter(toMajorNumber(tot.expense), inc, t('dash.spent_pct', { pct: spentPct }), { low: inc * 0.7, high: inc * 0.9, optimum: 0 }) : ''}
+        <div class="hero-sub"><span>${left < 0n ? t('dash.overspent', { amount: f.money(-left) }) : t('dash.spent_pct', { pct: spentPct })}</span><span>${t('dash.days_left', { n: daysLeft, amount: f.money(perDay) })}</span></div>
+      </div>
+      <div class="tiles">
+        <div class="tile inc"><span>${t('dash.income_month')}</span><strong>${f.moneyHtml(tot.income)}</strong></div>
+        <div class="tile exp"><span>${t('dash.expense_month')}</span><strong>${f.moneyHtml(tot.expense)}</strong></div>
+        <div class="tile" title="${t('dash.savings_rate_hint')}"><span>${t('dash.savings_rate')}</span><strong>${f.privacy ? '•••' : f.pct(sr)}</strong></div>
+      </div>
+    </section>`);
   }
   if (!hidden.has('emergency')) stats.push(stat(t('dash.runway'), Number.isFinite(emg.runway) ? t('common.months', { n: f.num(emg.runway) }) : '∞', t(`emg.tier.${tier}`), tier === 'secure' ? 'ok' : tier === 'none' ? 'bad' : 'warn'));
   if (!hidden.has('debt')) stats.push(stat(t('dash.debt_free'), debts.total === 0n ? t('debt.none') : debts.neverPaysOff ? t('debt.never') : f.date(debts.debtFreeDate), debts.total > 0n ? html`${t('debt.total')} ${f.money(debts.total)} · DSR ${f.pct(dsr)}` : '', debts.neverPaysOff ? 'bad' : dsr > p.dsr_threshold_e4 / 1_000_000 ? 'warn' : undefined));

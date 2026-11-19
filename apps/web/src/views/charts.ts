@@ -11,6 +11,24 @@ const PAD = { l: 64, r: 12, t: 14, b: 34 };
 
 export interface Series { name: string; cls: string; values: (number | null)[]; dashed?: boolean; dotted?: boolean; area?: boolean }
 
+/** Smooth curve through points (Catmull-Rom → cubic Bézier), used for line and area series. */
+function smoothPath(pts: [number, number][]): string {
+  if (!pts.length) return '';
+  let d = `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i - 1] ?? pts[i], b = pts[i], c = pts[i + 1], e = pts[i + 2] ?? c;
+    d += ` C${(b[0] + (c[0] - a[0]) / 6).toFixed(1)},${(b[1] + (c[1] - a[1]) / 6).toFixed(1)} ${(c[0] - (e[0] - b[0]) / 6).toFixed(1)},${(c[1] - (e[1] - b[1]) / 6).toFixed(1)} ${c[0].toFixed(1)},${c[1].toFixed(1)}`;
+  }
+  return d;
+}
+
+/** Vertical fade for area fills; colour comes from CSS (`.gs.<cls>`), so it follows light/dark. Ids are unique per render. */
+let gradSeq = 0;
+function fadeGradient(cls: string): { id: string; def: string } {
+  const id = `hg${(gradSeq = (gradSeq + 1) % 1e6)}`;
+  return { id, def: `<defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" class="gs ${cls}" stop-opacity=".28"/><stop offset="1" class="gs ${cls}" stop-opacity="0"/></linearGradient></defs>` };
+}
+
 function niceMax(v: number): number {
   if (v <= 0) return 1;
   const p = Math.pow(10, Math.floor(Math.log10(v)));
@@ -35,7 +53,7 @@ function niceRange(lo: number, hi: number): { min: number; max: number; step: nu
 function axis(min: number, max: number, fmt: (n: number) => string): string {
   const step = niceMax(Math.max(1e-9, (max - min) / 4));
   const ticks: number[] = [];
-  for (let v = min; v <= max + step / 2; v += step) ticks.push(Math.abs(v) < step / 1e6 ? 0 : v);
+  for (let v = min; v <= max + step / 1e6; v += step) ticks.push(Math.abs(v) < step / 1e6 ? 0 : v); // never past the plot top
   const y = (v: number) => PAD.t + (H - PAD.t - PAD.b) * (1 - (v - min) / (max - min || 1));
   return ticks.map((v) => `<line x1="${PAD.l}" x2="${W - PAD.r}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}" class="grid"/><text x="${PAD.l - 6}" y="${(y(v) + 4).toFixed(1)}" class="tick" text-anchor="end">${esc(fmt(v))}</text>`).join('');
 }
@@ -61,15 +79,15 @@ export function barChart(o: { title: string; labels: string[]; bars: Series[]; l
       if (v == null) return;
       const x = PAD.l + step * i + step * 0.15 + bw * si;
       const y0 = y(Math.max(0, v)), y1 = y(Math.min(0, v));
-      const rect = `<rect x="${x.toFixed(1)}" y="${y0.toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(0.5, y1 - y0).toFixed(1)}" class="${s.cls} fill"><title>${esc(o.labels[i])} · ${esc(s.name)}: ${esc(o.fmt(v))}</title></rect>`;
+      const rect = `<rect x="${x.toFixed(1)}" y="${y0.toFixed(1)}" width="${(bw * 0.86).toFixed(1)}" height="${Math.max(0.5, y1 - y0).toFixed(1)}" rx="${Math.min(5, bw * 0.3).toFixed(1)}" class="${s.cls} fill"><title>${esc(o.labels[i])} · ${esc(s.name)}: ${esc(o.fmt(v))}</title></rect>`;
       const link = o.links?.[i];
       // drill-down (§4.9): bars link to the matching transactions
       inner += link ? `<a href="${esc(link)}" aria-label="${esc(o.labels[i])} · ${esc(s.name)}: ${esc(o.fmt(v))}">${rect}</a>` : rect;
     });
   });
   if (o.line) {
-    const pts = o.line.values.map((v, i) => (v == null ? null : `${(PAD.l + step * (i + 0.5)).toFixed(1)},${y(v).toFixed(1)}`)).filter(Boolean);
-    inner += `<polyline points="${pts.join(' ')}" class="${o.line.cls} stroke" fill="none" stroke-width="2.5"/>`;
+    const pts = o.line.values.flatMap((v, i): [number, number][] => (v == null ? [] : [[PAD.l + step * (i + 0.5), y(v)]]));
+    inner += `<path d="${smoothPath(pts)}" class="${o.line.cls} stroke" fill="none" stroke-width="2.5" stroke-linecap="round"/>`;
     o.line.values.forEach((v, i) => { if (v != null) inner += `<circle cx="${(PAD.l + step * (i + 0.5)).toFixed(1)}" cy="${y(v).toFixed(1)}" r="3" class="${o.line!.cls} fill"><title>${esc(o.labels[i])} · ${esc(o.line!.name)}: ${esc(o.fmt(v))}</title></circle>`; });
   }
   inner += xLabels(o.labels, n > 8 ? 2 : 1);
@@ -91,15 +109,16 @@ export function lineChart(o: { title: string; labels: string[]; series: Series[]
     inner += `<polygon points="${[...up, ...lo].join(' ')}" class="${o.band.cls} band"/>`;
   }
   for (const s of o.series) {
-    const segs: string[][] = [[]];
-    s.values.forEach((v, i) => { if (v == null) { if (segs[segs.length - 1].length) segs.push([]); } else segs[segs.length - 1].push(`${x(i).toFixed(1)},${y(v).toFixed(1)}`); });
+    const segs: [number, number][][] = [[]];
+    s.values.forEach((v, i) => { if (v == null) { if (segs[segs.length - 1].length) segs.push([]); } else segs[segs.length - 1].push([x(i), y(v)]); });
     for (const seg of segs) {
       if (!seg.length) continue;
+      const d = smoothPath(seg);
       if (s.area) {
-        const first = seg[0].split(',')[0], last = seg[seg.length - 1].split(',')[0];
-        inner += `<polygon points="${first},${y(0).toFixed(1)} ${seg.join(' ')} ${last},${y(0).toFixed(1)}" class="${s.cls} area"/>`;
+        const g = fadeGradient(s.cls);
+        inner += `${g.def}<path d="${d} L${seg[seg.length - 1][0].toFixed(1)},${y(0).toFixed(1)} L${seg[0][0].toFixed(1)},${y(0).toFixed(1)} Z" fill="url(#${g.id})" class="area-fade"/>`;
       }
-      inner += `<polyline points="${seg.join(' ')}" fill="none" class="${s.cls} stroke" stroke-width="2.5"${s.dashed ? ' stroke-dasharray="7 5"' : s.dotted ? ' stroke-dasharray="1.5 4" stroke-linecap="round"' : ''}/>`;
+      inner += `<path d="${d}" fill="none" class="${s.cls} stroke" stroke-width="2.5" stroke-linecap="round"${s.dashed ? ' stroke-dasharray="7 5"' : s.dotted ? ' stroke-dasharray="1.5 4"' : ''}/>`;
     }
     const lastIdx = s.values.reduce<number>((acc, v, i) => (v != null ? i : acc), -1);
     if (lastIdx >= 0) inner += `<circle cx="${x(lastIdx).toFixed(1)}" cy="${y(s.values[lastIdx]!).toFixed(1)}" r="3.5" class="${s.cls} fill"><title>${esc(s.name)} · ${esc(o.labels[lastIdx])}: ${esc(o.fmt(s.values[lastIdx]!))}</title></circle>`;
@@ -112,7 +131,7 @@ export function lineChart(o: { title: string; labels: string[]; series: Series[]
 /** Donut with an accessible legend list (DASH-02, 17). */
 export function donut(o: { title: string; items: { label: string; value: number; display: string }[]; summary: string; center?: string }): SafeHtml {
   const total = o.items.reduce((s, i) => s + Math.max(0, i.value), 0);
-  const R = 70, r = 44, cx = 90, cy = 90;
+  const R = 78, r = 54, cx = 90, cy = 90;
   let a0 = -Math.PI / 2;
   let paths = '';
   o.items.forEach((it, idx) => {
@@ -176,7 +195,7 @@ export function stackedBars(o: { title: string; labels: string[]; stacks: Series
       const v = Math.max(0, s.values[i] ?? 0);
       if (!v) return;
       const y1 = y(acc), y0 = y(acc + v);
-      inner += `<rect x="${(PAD.l + step * i + step * 0.2).toFixed(1)}" y="${y0.toFixed(1)}" width="${(step * 0.6).toFixed(1)}" height="${(y1 - y0).toFixed(1)}" class="${s.cls} fill"><title>${esc(lab)} · ${esc(s.name)}: ${esc(o.fmt(v))}</title></rect>`;
+      inner += `<rect x="${(PAD.l + step * i + step * 0.2).toFixed(1)}" y="${y0.toFixed(1)}" width="${(step * 0.6).toFixed(1)}" height="${Math.max(0.5, y1 - y0 - 1.5).toFixed(1)}" rx="3" class="${s.cls} fill"><title>${esc(lab)} · ${esc(s.name)}: ${esc(o.fmt(v))}</title></rect>`;
       acc += v;
     });
   });

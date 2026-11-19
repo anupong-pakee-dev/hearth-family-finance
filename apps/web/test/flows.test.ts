@@ -25,7 +25,7 @@ before(async () => { app = await startApp(); });
 after(async () => { await app.close(); });
 
 const PAGES = ['/', '/analytics', '/analytics?range=12m', '/transactions', '/transactions/new', '/accounts', '/categories', '/debts', '/debts/plan', '/goals', '/emergency', '/budget', '/recurring',
-  '/household', '/reports', '/reports/year', '/reports/debt', '/reports/health', '/reports/tax', '/settings', '/settings/security', '/notifications', '/more', '/transactions/import'];
+  '/household', '/reports', '/reports/year', '/reports/debt', '/reports/health', '/reports/tax', '/settings', '/settings/colors', '/settings/security', '/notifications', '/more', '/transactions/import'];
 
 async function setup(email: string, mode: 'off' | 'partial' | 'full', invest: boolean) {
   const c = new Client(app.base);
@@ -178,6 +178,31 @@ test('NFR-PERF-21: transaction list query count does not grow with data (no N+1)
   assert.equal(big.dash.q, small.dash.q, `dashboard: ${small.dash.q} vs ${big.dash.q} queries`);
   assert.ok(big.list.ms < 1500, `list rendered in ${big.list.ms} ms`);
   void queryCounter;
+});
+
+test('colours & theme: presets and custom colours apply to every page, reset restores the default', async () => {
+  const c = new Client(app.base);
+  await c.register('colors@hearth.test');
+  const view = async (path = '/settings/colors') => { const r = await c.get(path); assert.equal(r.status, 200, path); return r.text; };
+  assert.doesNotMatch(await view(), /:root{--primary:#/, 'default palette adds no CSS');
+
+  let r = await c.post('/settings/colors', { action: 'preset', preset: 'ocean', primary: '#000000' }, '/settings/colors');
+  assert.equal(r.status, 303);
+  let page = await view('/settings');
+  assert.match(page, /:root\{--primary:#3c6e91;/, 'preset ignores leftover custom inputs');
+  assert.match(page, /:root\[data-theme=dark\]\{--primary:#/, 'dark-mode variant is emitted');
+
+  r = await c.post('/settings/colors', { action: 'custom', preset: 'ocean', primary: '#AA2233', heat: 'red;}body{x', c1: '#123456' }, '/settings/colors');
+  assert.equal(r.status, 303);
+  page = await view('/settings');
+  assert.match(page, /--primary:#aa2233/);
+  assert.match(page, /--s0:#/);
+  assert.doesNotMatch(page, /body\{x/, 'invalid values are dropped, never injected');
+  assert.match(await view(), /name="primary" value="#aa2233"/);
+
+  r = await c.post('/settings/colors/reset', {}, '/settings/colors');
+  assert.equal(r.status, 303);
+  assert.doesNotMatch(await view(), /:root{--primary:#/);
 });
 
 test('CSV parsing handles quotes, BOM, semicolons and Buddhist-era dates', () => {

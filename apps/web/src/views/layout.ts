@@ -1,6 +1,7 @@
 import type { Ctx } from '../http/app.ts';
 import { asset, assetSource } from '../http/static.ts';
 import { html, raw, type SafeHtml } from './html.ts';
+import { cssFor } from '../../public/theme-colors.js';
 
 export function icon(name: string, label?: string): SafeHtml {
   return html`<svg class="ic" ${raw(label ? `role="img" aria-label="${label.replace(/"/g, '')}"` : 'aria-hidden="true"')}><use href="${asset('icons.svg')}#${name}"/></svg>`;
@@ -42,6 +43,12 @@ function isActive(ctx: Ctx, href: string) {
   return href === '/' ? ctx.path === '/' : ctx.path === href || ctx.path.startsWith(href + '/');
 }
 
+/** The person's own palette (Settings › Colours & theme) as CSS variables; nothing when they use the default. */
+function userColors(ctx: Ctx): SafeHtml {
+  const css = cssFor(ctx.prefs?.colors ?? {}); // values are validated #rrggbb only
+  return css ? html`<style nonce="${ctx.nonce}">${raw(css)}</style>` : html``;
+}
+
 function head(ctx: Ctx, title: string, scripts: string[] = []): SafeHtml {
   const theme = ctx.prefs?.theme ?? 'system';
   return html`<!doctype html>
@@ -51,12 +58,14 @@ function head(ctx: Ctx, title: string, scripts: string[] = []): SafeHtml {
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>${title} · Hearth</title>
 <meta name="description" content="${ctx.t('app.tagline')}">
-<meta name="theme-color" content="#1f4d42">
+<meta name="theme-color" content="#f5f3ee" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#151a18" media="(prefers-color-scheme: dark)">
 <meta name="color-scheme" content="light dark">
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="icon" href="/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/icon.svg">
 <style nonce="${ctx.nonce}">${raw(assetSource('app.css'))}</style>
+${userColors(ctx)}
 <script type="module" nonce="${ctx.nonce}" src="${asset('app.js')}"></script>
 ${scripts.map((s) => html`<script type="module" nonce="${ctx.nonce}" src="${asset(s)}"></script>`)}
 </head>`;
@@ -66,7 +75,8 @@ ${scripts.map((s) => html`<script type="module" nonce="${ctx.nonce}" src="${asse
 export function page(ctx: Ctx, o: { title: string; body: SafeHtml; actions?: SafeHtml; wide?: boolean; scripts?: string[] }): SafeHtml {
   if (!ctx.user || !ctx.session || ctx.session.mfa_pending) return guestPage(ctx, o);
   const items = navItems(ctx);
-  const primary = ['/', '/transactions', '/debts', '/goals'];
+  // Bottom bar (phones): two tabs, the add button, one tab, then "more" — five even slots.
+  const primary = ['/', '/transactions', '/goals'];
   const hh = ctx.households.length > 0;
   return html`${head(ctx, o.title, o.scripts)}
 <body class="${ctx.prefs?.privacy_mode ? 'privacy' : ''}">

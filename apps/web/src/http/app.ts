@@ -72,6 +72,7 @@ export interface Prefs {
   dashboard_hidden: string[];
   tax_limits: Record<string, string>;
   last_summary_sent: string | null;
+  colors: Record<string, string>;
 }
 
 export type View = 'mine' | 'household' | 'all';

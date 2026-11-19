@@ -4,7 +4,9 @@
 import { get, post, htmlRes, redirect, withFlash, download, safeNext, HttpError, type Ctx } from '../http/app.ts';
 import { html, raw } from '../views/html.ts';
 import { page, icon, csrfField } from '../views/layout.ts';
-import { field, input, select, form, postButton, card, checkbox, rateInput } from '../views/ui.ts';
+import { field, input, select, form, postButton, card, checkbox, rateInput, meter } from '../views/ui.ts';
+import { donut } from '../views/charts.ts';
+import { PRESETS, sanitize, normalize } from '../../public/theme-colors.js';
 import { makeFmt, inputRate, inputMoney } from '../views/format.ts';
 import { text, oneOf, intIn, rate, cipher, money } from '../services/common.ts';
 
@@ -54,6 +56,8 @@ get('/settings', { access: 'auth' }, async (ctx) => {
         ${field(t('settings.dsr_threshold'), rateInput('dsr', inputRate(p.dsr_threshold_e4)), { hint: '%' })}
         ${field(t('settings.budget_warn'), rateInput('budget_warn', inputRate(p.budget_warn_e4)), { hint: '%' })}
       </div>`, { submit: t('common.save') }))}
+      ${card(t('colors.title'), html`<p class="note">${t('colors.intro')}</p>
+        <p class="row-actions"><a class="btn" href="/settings/colors">${t('colors.open')}</a> <span class="note">${t(`colors.preset.${p.colors?.preset ?? 'sage'}`)}${p.colors?.preset ? '' : ` · ${t('colors.default')}`}</span></p>`, { id: 'colors' })}
       ${card(t('settings.modules'), form(ctx, '/settings/modules', html`
         <fieldset class="choices" id="buckets"><legend>${t('settings.bucket_mode')}</legend>
           ${(['off', 'partial', 'full'] as const).map((m) => html`<label class="choice"><input type="radio" name="bucket_mode" value="${m}" ${yes(p.bucket_mode === m)}><span><strong>${t(`bucket.mode.${m}`)}</strong><small>${t(`bucket.mode.${m}_desc`)}</small></span></label>`)}
@@ -123,6 +127,66 @@ post('/settings/modules', { access: 'auth' }, async (ctx) => {
   });
   if (prev === 'off' && mode !== 'off') return redirect('/buckets/wizard');
   return redirect(withFlash('/settings', 'ok', 'saved'));
+});
+
+// ───────────── Colours & theme: presets + per-colour overrides, stored per user ─────────────
+get('/settings/colors', { access: 'auth' }, async (ctx) => {
+  const t = ctx.t;
+  const saved = sanitize(ctx.prefs!.colors ?? {});
+  const presetId = saved.preset ?? PRESETS[0].id;
+  const cur: Record<string, string> = { ...PRESETS[0], ...PRESETS.find((x) => x.id === presetId), ...saved };
+  // swatch strips for the preset cards — constant values, so a nonce'd <style> instead of inline styles (CSP)
+  const strips = PRESETS.map((pr) => (['primary', 'inc', 'exp', 'heat', 'c2'] as const).map((k, i) => `.pz-${pr.id} i:nth-child(${i + 1}){background:${pr[k]}}`).join('')).join('');
+  const colorField = (k: string, label: string, hint?: string) => html`<div class="color-field"><input type="color" id="f-col-${k}" name="${k}" value="${cur[k]}"${hint ? raw(` aria-describedby="f-col-${k}-hint"`) : ''}><label for="f-col-${k}">${label}</label>${hint ? html`<small id="f-col-${k}-hint">${hint}</small>` : ''}</div>`;
+  const bars = [[80, 62], [80, 70], [86, 55], [80, 74], [80, 50]];
+  const miniBars = bars.map(([a, b], i) => `<rect x="${8 + i * 60}" y="${100 - a}" width="20" height="${a}" rx="4" class="c-inc fill"/><rect x="${32 + i * 60}" y="${100 - b}" width="20" height="${b}" rx="4" class="c-exp fill"/>`).join('');
+  const heatCells = [1, 2, 0, 3, 1, 2, 4, 0, 1, 3, 2, 4, 2, 1].map((l, i) => `<rect x="${(i % 7) * 44}" y="${Math.floor(i / 7) * 44}" width="38" height="38" rx="7" class="heat l${l}"/>`).join('');
+  return htmlRes(page(ctx, {
+    title: t('colors.title'),
+    scripts: ['theme-colors.js'],
+    actions: html`<a class="btn" href="/settings#colors">← ${t('nav.settings')}</a>`,
+    body: html`<style nonce="${ctx.nonce}">${raw(strips)}</style>
+      <p class="note">${t('colors.intro')}</p>
+      <form method="post" action="/settings/colors" class="stack" data-colors>${csrfField(ctx)}
+        ${card(t('colors.presets'), html`<fieldset class="choices preset-grid"><legend class="sr-only">${t('colors.presets')}</legend>
+          ${PRESETS.map((pr) => html`<label class="choice preset"><input type="radio" name="preset" value="${pr.id}" ${raw(pr.id === presetId ? 'checked' : '')}><span><span class="strip pz-${pr.id}" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span><strong>${t(`colors.preset.${pr.id}`)}</strong><small>${t(`colors.preset.${pr.id}_desc`)}</small></span></label>`)}
+          </fieldset><div class="actions"><button class="btn" name="action" value="preset">${t('colors.apply_preset')}</button></div>`)}
+        <div class="grid2">
+          ${card(t('colors.custom'), html`<div class="color-grid">
+              ${colorField('primary', t('colors.slot.primary'), t('colors.slot.primary_hint'))}
+              ${colorField('inc', t('colors.slot.inc'), t('colors.slot.inc_hint'))}
+              ${colorField('exp', t('colors.slot.exp'), t('colors.slot.exp_hint'))}
+              ${colorField('heat', t('colors.slot.heat'), t('colors.slot.heat_hint'))}
+            </div>
+            <h3>${t('colors.cats')}</h3><p class="note">${t('colors.cats_hint')}</p>
+            <div class="color-grid">${(['c1', 'c2', 'c3', 'c4', 'c5'] as const).map((k, i) => colorField(k, t('colors.cat_n', { n: i + 1 })))}</div>`)}
+          ${card(t('colors.preview'), html`<div class="preview">
+              <p class="note">${t('colors.preview_hint')}</p>
+              <div class="preview-row"><span class="btn primary">${icon('plus')} ${t('txn.add')}</span><span class="chip-nav">${icon('home')} ${t('nav.dashboard')}</span></div>
+              <ul class="rows"><li><span>${t('colors.sample_income')}</span><span class="amt pos">+฿52,000</span></li><li><span>${t('colors.sample_expense')}</span><span class="amt neg">−฿2,340</span></li></ul>
+              ${meter(65, 100, t('dash.spent_pct', { pct: '65%' }))}
+              <svg class="mini chart" viewBox="0 0 300 104" role="img" aria-label="${t('dash.chart.income_expense')}">${raw(miniBars)}</svg>
+              ${donut({ title: t('dash.chart.by_category'), summary: t('dash.chart.by_category_sum'), items: [11_200, 9_500, 5_850, 4_200, 2_800].map((v, i) => ({ label: t('colors.cat_n', { n: i + 1 }), value: v, display: `฿${v.toLocaleString('en-US')}` })) })}
+              <svg class="mini chart" viewBox="0 0 302 82" role="img" aria-label="${t('colors.slot.heat')}">${raw(heatCells)}</svg>
+            </div>`)}
+        </div>
+        <div class="actions"><button class="btn primary" name="action" value="custom">${t('colors.save')}</button></div>
+      </form>
+      <div class="row-actions">${postButton(ctx, '/settings/colors/reset', t('colors.reset'), { cls: '' })}<span class="note">${t('colors.default_note')}</span></div>`,
+  }));
+});
+
+post('/settings/colors', { access: 'auth' }, async (ctx) => {
+  const preset = PRESETS.find((x) => x.id === ctx.body.preset) ?? PRESETS[0];
+  // "Use this palette" takes the preset as-is; "Save" keeps the person's own picks on top of it
+  const colors = ctx.body.action === 'preset' ? normalize({ preset: preset.id }) : normalize({ ...ctx.body, preset: preset.id });
+  await ctx.as((q) => q.query('update user_preferences set colors = $1, updated_at = now() where user_id = hearth_uid()', [JSON.stringify(colors)]));
+  return redirect(withFlash('/settings/colors', 'ok', 'saved'));
+});
+
+post('/settings/colors/reset', { access: 'auth' }, async (ctx) => {
+  await ctx.as((q) => q.query(`update user_preferences set colors = '{}', updated_at = now() where user_id = hearth_uid()`));
+  return redirect(withFlash('/settings/colors', 'ok', 'saved'));
 });
 
 post('/settings/dashboard', { access: 'auth' }, async (ctx) => {
