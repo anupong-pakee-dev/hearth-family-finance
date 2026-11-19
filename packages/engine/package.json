@@ -1,0 +1,8 @@
+{
+  "name": "@hearth/engine",
+  "version": "0.1.0",
+  "description": "Pure, I/O-free finance engine for Hearth Family Finance (debt, savings, investment, health maths).",
+  "license": "MIT",
+  "type": "module",
+  "exports": { ".": "./src/index.ts" }
+}

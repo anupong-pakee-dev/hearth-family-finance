@@ -1,0 +1,37 @@
+{
+  "name": "hearth-family-finance",
+  "version": "0.2.0",
+  "description": "Open-source money manager for the whole family — budget, save, invest and get out of debt together.",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24.7"
+  },
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "node --watch apps/web/src/server.ts",
+    "start": "node apps/web/src/server.ts",
+    "migrate": "node apps/web/src/db/migrate.ts",
+    "seed:demo": "node apps/web/scripts/seed-demo.ts",
+    "rotate-keys": "node apps/web/scripts/rotate-keys.ts",
+    "check:licenses": "node apps/web/scripts/check-licenses.ts",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "node --test --test-reporter=spec \"packages/engine/test/*.test.ts\" \"apps/web/test/*.test.ts\"",
+    "test:engine": "node --test --test-reporter=spec \"packages/engine/test/*.test.ts\"",
+    "test:coverage": "node --test --experimental-test-coverage --test-coverage-include=\"packages/engine/src/**\" --test-coverage-lines=80 \"packages/engine/test/*.test.ts\"",
+    "restore": "node apps/web/scripts/restore.ts",
+    "setup": "node deploy/setup.mjs",
+    "lighthouse": "npx --yes @lhci/cli@0.16.0 autorun",
+    "lighthouse:local": "node apps/web/scripts/lighthouse.ts"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.2",
+    "@types/pg": "8.23.1",
+    "lighthouse": "13.6.0",
+    "typescript": "7.0.2"
+  }
+}

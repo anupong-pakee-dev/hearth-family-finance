@@ -1,0 +1,11 @@
+# gitleaks (CI "secrets" job): default rules plus a narrow allowlist for known-fake test values.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Fake credentials used only by the test suite against an in-memory database"
+# Exact values only — never allowlist whole paths, so a real secret pasted into a test is still caught.
+regexTarget = "secret"
+regexes = [
+  '''^lantern-river-mango-42$''',
+]

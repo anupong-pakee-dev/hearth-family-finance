@@ -1,0 +1,90 @@
+# Slower checks (NFR-SEC-26, NFR-PERF-03/05): Postgres migrations, CodeQL + Semgrep, OSV + licences,
+# Trivy + SBOM and Lighthouse CI. Runs weekly, on demand (Actions → weekly → Run workflow), and on PRs
+# that change dependencies or the container, so Dependabot updates still get the full check.
+name: weekly
+on:
+  schedule: [{ cron: "0 2 * * 1" }]   # Monday 02:00 UTC
+  workflow_dispatch:
+  pull_request:
+    paths: ["package-lock.json", "**/package.json", "Dockerfile", ".github/workflows/weekly.yml", "lighthouserc.cjs", "budget.json"]
+permissions:
+  contents: read
+concurrency:
+  group: weekly-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-postgres:
+    # Migrations up → down → up against real PostgreSQL 17 (they must be reversible, NFR-OPS-02)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env: { POSTGRES_USER: hearth, POSTGRES_PASSWORD: ci-only-password, POSTGRES_DB: hearth }
+        ports: ["5432:5432"]
+        options: --health-cmd "pg_isready -U hearth" --health-interval 5s --health-retries 10
+    env:
+      DATABASE_URL: postgres://hearth:ci-only-password@localhost:5432/hearth
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: npm }
+      - run: npm ci --ignore-scripts
+      - run: npm run migrate && node apps/web/src/db/migrate.ts down && npm run migrate   # migrations are reversible (NFR-OPS-02)
+
+  sast:
+    runs-on: ubuntu-latest
+    permissions: { contents: read, security-events: write }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: github/codeql-action/init@v3
+        with: { languages: javascript-typescript, queries: security-extended }
+      - uses: github/codeql-action/analyze@v3
+      - name: Semgrep
+        run: pipx run semgrep scan --config p/owasp-top-ten --config p/nodejs --config p/secrets --error --severity ERROR
+
+  dependencies:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: OSV-Scanner (fails on High/Critical)
+        uses: google/osv-scanner-action/osv-scanner-action@v2.0.0
+        with: { scan-args: "--lockfile=package-lock.json" }
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: npm }
+      - run: npm ci --ignore-scripts
+      - name: License check (production dependencies, workspace-aware)
+        run: npm run check:licenses
+
+  container:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t hearth:ci .
+      - name: Trivy (fails on High/Critical)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with: { image-ref: "hearth:ci", severity: "HIGH,CRITICAL", exit-code: "1", ignore-unfixed: true }
+      - name: SBOM (CycloneDX)
+        uses: anchore/sbom-action@v0
+        with: { image: "hearth:ci", format: cyclonedx-json, output-file: sbom.cdx.json }
+
+  lighthouse:
+    # NFR-PERF-01/03: 100/100/100/100 on the mobile preset, median of 3 runs, with realistic data
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: npm }
+      - run: npm ci --ignore-scripts
+      - run: DEMO_TXNS=50000 DEMO_LANG=th npm run seed:demo
+        env: { HEARTH_JOBS: "off" }
+      # The runner image no longer ships Chrome, so install a stable build for Lighthouse.
+      - uses: browser-actions/setup-chrome@v2.2.0
+        id: chrome
+        with: { chrome-version: stable, install-dependencies: true }
+      # Pinned: @lhci/cli bundles its own Lighthouse; 0.16.0 = Lighthouse 13.6.0, the same as the local runner.
+      # (0.14.x bundled Lighthouse 12.1, which reported a ~0.6 s unattributed blocking task on every page with Chrome 158.)
+      - run: npx --yes @lhci/cli@0.16.0 autorun
+        env:
+          CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
+          LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}
