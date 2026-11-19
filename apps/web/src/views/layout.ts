@@ -35,6 +35,7 @@ function navItems(ctx: Ctx): NavItem[] {
     { href: '/recurring', key: 'nav.recurring', icon: 'repeat' },
     { href: '/household', key: 'nav.household', icon: 'users' },
     { href: '/reports', key: 'nav.reports', icon: 'doc' },
+    { href: '/calculator', key: 'nav.calculator', icon: 'calc' },
     { href: '/settings', key: 'nav.settings', icon: 'gear' },
   ].filter((i) => i.show !== false);
 }
@@ -78,7 +79,8 @@ export function page(ctx: Ctx, o: { title: string; body: SafeHtml; actions?: Saf
   // Bottom bar (phones): two tabs, the add button, one tab, then "more" — five even slots.
   const primary = ['/', '/transactions', '/goals'];
   const hh = ctx.households.length > 0;
-  return html`${head(ctx, o.title, o.scripts)}
+  // calc.js on every signed-in page: amount fields accept maths such as 120+45 (progressive enhancement)
+  return html`${head(ctx, o.title, [...new Set([...(o.scripts ?? []), 'calc.js'])])}
 <body class="${ctx.prefs?.privacy_mode ? 'privacy' : ''}">
 <a class="skip" href="#main">${ctx.t('a11y.skip')}</a>
 <header class="top">

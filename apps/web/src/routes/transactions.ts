@@ -46,6 +46,12 @@ function slipReader(ctx: Ctx) {
   </div>`;
 }
 
+/** `?amount=1234.50` pre-fills a new transaction (e.g. "Record as a transaction" from the calculator). */
+function prefillAmount(ctx: Ctx): string {
+  const a = ctx.query.get('amount') ?? '';
+  return /^\d{1,13}(\.\d{1,2})?$/.test(a) && Number(a) > 0 ? a : '';
+}
+
 function txnForm(ctx: Ctx, lk: Awaited<ReturnType<typeof lookups>>, v: any = {}, action = '/transactions') {
   const kind = v.kind ?? ctx.query.get('kind') ?? 'expense';
   const accOpts = lk.accounts.map((a) => ({ value: a.id, label: a.currency !== ctx.prefs!.currency ? `${a.name} (${a.currency})` : a.name }));
@@ -57,7 +63,7 @@ function txnForm(ctx: Ctx, lk: Awaited<ReturnType<typeof lookups>>, v: any = {},
     <fieldset class="seg" role="radiogroup" aria-label="${ctx.t('txn.kind')}">
       ${KINDS.map((k) => html`<label><input type="radio" name="kind" value="${k}" ${kind === k ? raw('checked') : ''}><span>${ctx.t(`txn.kind.${k}`)}</span></label>`)}
     </fieldset>
-    <div class="amount-row">${field(ctx.t('txn.amount'), moneyInput('amount', v.amount != null ? inputMoney(v.amount) : '', { required: true, autofocus: !v.id, id: 'f-amount' }), { id: 'f-amount' })}</div>
+    <div class="amount-row">${field(ctx.t('txn.amount'), moneyInput('amount', v.amount != null ? inputMoney(v.amount) : prefillAmount(ctx), { required: true, autofocus: !v.id, id: 'f-amount' }), { id: 'f-amount', hint: ctx.t('calc.amount_hint') })}</div>
     <div class="grid2">
       ${field(ctx.t('txn.category'), select('category_id', categoryOptions(ctx, lk.categories), v.category_id ?? '', { empty: ctx.t('txn.uncategorized') }), { hint: ctx.t('txn.category_hint') })}
       ${field(ctx.t('txn.date'), dateInput('date', v.date ?? today(), true), { id: 'f-date' })}

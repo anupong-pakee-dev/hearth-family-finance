@@ -14,14 +14,15 @@ export function field(label: string, control: SafeHtml, opts: { hint?: string; i
   return html`<div class="field"><label${raw(id ? ` for="${id}"` : '')}>${label}</label>${ctl}${opts.hint ? html`<small class="hint"${raw(id ? ` id="${id}-hint"` : '')}>${opts.hint}</small>` : ''}</div>`;
 }
 
-type InputOpts = { name: string; type?: string; value?: string | number | null; required?: boolean; placeholder?: string; min?: string | number; max?: string | number; step?: string; inputmode?: string; autocomplete?: string; pattern?: string; maxlength?: number; autofocus?: boolean; readonly?: boolean; list?: string; id?: string };
+type InputOpts = { name: string; type?: string; value?: string | number | null; required?: boolean; placeholder?: string; min?: string | number; max?: string | number; step?: string; inputmode?: string; autocomplete?: string; pattern?: string; maxlength?: number; autofocus?: boolean; readonly?: boolean; list?: string; id?: string; calc?: boolean };
 
 export function input(o: InputOpts): SafeHtml {
-  return html`<input${attrs({ id: o.id ?? `f-${o.name}`, name: o.name, type: o.type ?? 'text', value: o.value == null ? undefined : String(o.value), required: o.required, placeholder: o.placeholder, min: o.min, max: o.max, step: o.step, inputmode: o.inputmode, autocomplete: o.autocomplete ?? 'off', pattern: o.pattern, maxlength: o.maxlength, autofocus: o.autofocus, readonly: o.readonly, list: o.list })}>`;
+  return html`<input${attrs({ id: o.id ?? `f-${o.name}`, name: o.name, type: o.type ?? 'text', value: o.value == null ? undefined : String(o.value), required: o.required, placeholder: o.placeholder, min: o.min, max: o.max, step: o.step, inputmode: o.inputmode, autocomplete: o.autocomplete ?? 'off', pattern: o.pattern, maxlength: o.maxlength, autofocus: o.autofocus, readonly: o.readonly, list: o.list, 'data-calc': o.calc })}>`;
 }
 
+/** Amount field. `data-calc`: with JavaScript, maths such as 120+45 or 1500*3 turns into the result when the field is left (calc.js). */
 export function moneyInput(name: string, value?: string | null, o: { required?: boolean; placeholder?: string; autofocus?: boolean; id?: string } = {}): SafeHtml {
-  return input({ name, value, required: o.required, inputmode: 'decimal', pattern: '-?[0-9,]*\\.?[0-9]{0,2}', placeholder: o.placeholder ?? '0.00', autofocus: o.autofocus, id: o.id });
+  return input({ name, value, required: o.required, inputmode: 'decimal', pattern: '-?[0-9,]*\\.?[0-9]{0,2}', placeholder: o.placeholder ?? '0.00', autofocus: o.autofocus, id: o.id, calc: true });
 }
 
 export function rateInput(name: string, value?: string | null, required = false): SafeHtml {

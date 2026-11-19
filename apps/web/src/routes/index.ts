@@ -15,3 +15,4 @@ import './admin.ts';
 import './reports.ts';
 import './analytics.ts';
 import './identity.ts';
+import './calculator.ts';

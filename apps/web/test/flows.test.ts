@@ -25,7 +25,8 @@ before(async () => { app = await startApp(); });
 after(async () => { await app.close(); });
 
 const PAGES = ['/', '/analytics', '/analytics?range=12m', '/transactions', '/transactions/new', '/accounts', '/categories', '/debts', '/debts/plan', '/goals', '/emergency', '/budget', '/recurring',
-  '/household', '/reports', '/reports/year', '/reports/debt', '/reports/health', '/reports/tax', '/settings', '/settings/colors', '/settings/security', '/notifications', '/more', '/transactions/import'];
+  '/household', '/reports', '/reports/year', '/reports/debt', '/reports/health', '/reports/tax', '/settings', '/settings/colors', '/settings/security', '/notifications', '/more', '/transactions/import',
+  '/calculator', '/calculator?q=1%2B', '/calculator/loan', '/calculator/savings', '/calculator/tax', '/calculator/split'];
 
 async function setup(email: string, mode: 'off' | 'partial' | 'full', invest: boolean) {
   const c = new Client(app.base);
@@ -203,6 +204,32 @@ test('colours & theme: presets and custom colours apply to every page, reset res
   r = await c.post('/settings/colors/reset', {}, '/settings/colors');
   assert.equal(r.status, 303);
   assert.doesNotMatch(await view(), /:root{--primary:#/);
+});
+
+test('calculator: works without JavaScript and hands results to a new transaction', async () => {
+  const c = await setup('calc@hearth.test', 'off', false);
+  const text = async (path: string) => { const r = await c.get(path); assert.equal(r.status, 200, path); return r.text; };
+
+  let page = await text(`/calculator?q=${encodeURIComponent('2,500*12 + 7%')}`);
+  assert.match(page, /data-calc-out>32,100</);
+  assert.match(page, /href="\/transactions\/new\?amount=32100\.00"/);
+  page = await text(`/calculator?q=${encodeURIComponent('1/0')}`);
+  assert.match(page, /role="alert" data-calc-err>[^<]+</, 'errors are explained');
+  assert.match(page, /<script[^>]+calc\.[\w-]+\.js/, 'calc.js is loaded');
+
+  assert.match(await text('/calculator/loan?principal=500000&rate=6.5&months=60&method=reducing'), /9,783\.08/);
+  assert.match(await text('/calculator/loan?principal=600000&rate=2.79&months=72&method=flat'), /9,728\.33/);
+  assert.match(await text('/calculator/loan?principal=abc&rate=6.5&months=60'), /class="flash err"/);
+  const tax = await text('/calculator/tax?amount=1605&mode=inclusive&vat=7&wht=3');
+  assert.match(tax, /1,500\.00/);
+  assert.match(tax, /105\.00/);
+  assert.match(tax, /1,560\.00/, '1,605 − 3% of 1,500');
+  assert.match(await text('/calculator/split?total=3450&people=4&service=10'), /948\.75/);
+  assert.match(await text('/calculator/savings?target=120000&months=18&rate=2&start='), /6,572\.73/);
+
+  assert.match(await text('/transactions/new?amount=165.50'), /name="amount"[^>]*value="165\.50"/);
+  assert.doesNotMatch(await text('/transactions/new?amount=%22%3E%3Cscript%3E'), /value="&quot;/, 'only plain amounts are prefilled');
+  assert.match(await text('/transactions/new'), /name="amount"[^>]*data-calc/, 'amount fields accept maths');
 });
 
 test('CSV parsing handles quotes, BOM, semicolons and Buddhist-era dates', () => {

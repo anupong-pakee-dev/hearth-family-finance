@@ -28,7 +28,8 @@ document.addEventListener('submit', (e) => {
   if (msg && !window.confirm(msg)) { e.preventDefault(); return; }
   // prevent double submits (e.g. duplicate transactions)
   const b = e.submitter || f.querySelector('button[type=submit],button:not([type])');
-  if (b instanceof HTMLButtonElement) setTimeout(() => { b.disabled = true; }, 0);
+  // …but not when a script handled the submit in the page (e.g. the calculator), or the button would stay dead
+  if (b instanceof HTMLButtonElement) setTimeout(() => { if (!e.defaultPrevented) b.disabled = true; }, 0);
 }, true);
 
 document.addEventListener('click', (e) => {
