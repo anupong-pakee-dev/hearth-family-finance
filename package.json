@@ -25,7 +25,7 @@
     "test:coverage": "node --test --experimental-test-coverage --test-coverage-include=\"packages/engine/src/**\" --test-coverage-lines=80 \"packages/engine/test/*.test.ts\"",
     "restore": "node apps/web/scripts/restore.ts",
     "setup": "node deploy/setup.mjs",
-    "lighthouse": "npx --yes @lhci/cli@0.14.x autorun",
+    "lighthouse": "npx --yes @lhci/cli@0.16.0 autorun",
     "lighthouse:local": "node apps/web/scripts/lighthouse.ts"
   },
   "devDependencies": {

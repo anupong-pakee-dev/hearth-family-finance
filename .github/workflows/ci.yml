@@ -96,7 +96,9 @@ jobs:
       - uses: browser-actions/setup-chrome@v2.2.0
         id: chrome
         with: { chrome-version: stable, install-dependencies: true }
-      - run: npx --yes @lhci/cli@0.14.x autorun
+      # Pinned: @lhci/cli bundles its own Lighthouse; 0.16.0 = Lighthouse 13.6.0, the same as the local runner.
+      # (0.14.x bundled Lighthouse 12.1, which reported a ~0.6 s unattributed blocking task on every page with Chrome 158.)
+      - run: npx --yes @lhci/cli@0.16.0 autorun
         env:
           CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
           LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}

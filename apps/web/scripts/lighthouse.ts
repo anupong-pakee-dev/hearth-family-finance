@@ -4,7 +4,7 @@
  *   npm run seed:demo          # once (DEMO_TXNS=50000 for the NFR-PERF-02 profile)
  *   npm run lighthouse:local   # LH_RUNS=3 LH_URLS=/,/debts  CHROME_PATH=... optional
  *
- * Exits non-zero when any category on any page is below 100.
+ * Exits non-zero when any category on any page is below 100 or a budget.json limit is exceeded.
  */
 import { spawn } from 'node:child_process';
 import { readFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
@@ -13,6 +13,13 @@ import { fileURLToPath } from 'node:url';
 import lighthouse from 'lighthouse';
 import * as chromeLauncher from 'chrome-launcher';
 import puppeteer from 'puppeteer-core';
+import { createRequire } from 'node:module';
+
+// Same byte/count/timing limits as CI (budget.json → .lighthouse/budget-assertions.cjs).
+const { budgetAssertions, measured } = createRequire(import.meta.url)('../../../.lighthouse/budget-assertions.cjs') as {
+  budgetAssertions: () => Record<string, ['error', { maxNumericValue: number }]>;
+  measured: (lhr: unknown, key: string) => number | undefined;
+};
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '../../..');
 const PORT = Number(process.env.LH_PORT ?? 3100);
@@ -93,6 +100,10 @@ try {
             if (ref.weight > 0 && a.score !== null && a.score < 1) failures.push(`${path} [${catId}] ${a.id}: ${a.title} (${a.displayValue ?? a.score})`);
           }
         }
+        for (const [key, [, { maxNumericValue }]] of Object.entries(budgetAssertions())) {
+          const v = measured(lhr, key);
+          if (v == null || v > maxNumericValue) failures.push(`${path} [budget] ${key}: ${v == null ? 'missing' : Math.round(v * 1000) / 1000} > ${maxNumericValue}`);
+        }
         const m = (id: string) => Math.round(lhr.audits[id]?.numericValue ?? NaN);
         console.log(`  ${path}: FCP ${m('first-contentful-paint')}ms · LCP ${m('largest-contentful-paint')}ms · TBT ${m('total-blocking-time')}ms · CLS ${lhr.audits['cumulative-layout-shift']?.numericValue?.toFixed(3)} · SI ${m('speed-index')}ms · bytes ${m('total-byte-weight')}`);
       }
@@ -109,4 +120,4 @@ try {
 console.table(results);
 if (failures.length) console.log('\nAudits below 100:\n' + [...new Set(failures)].join('\n'));
 const bad = Object.values(results).some((r) => Object.values(r).some((v) => v < 100));
-process.exit(bad ? 1 : 0);
+process.exit(bad || failures.some((f) => f.includes('[budget]')) ? 1 : 0);

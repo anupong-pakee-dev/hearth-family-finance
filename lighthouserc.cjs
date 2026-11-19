@@ -1,4 +1,6 @@
 // Lighthouse CI (NFR-PERF-01..05): every category must score 100 on the mobile preset.
+const { budgetAssertions } = require('./.lighthouse/budget-assertions.cjs');
+
 module.exports = {
   ci: {
     collect: {
@@ -7,7 +9,7 @@ module.exports = {
       numberOfRuns: 3,
       puppeteerScript: './.lighthouse/login.cjs',
       puppeteerLaunchOptions: { args: ['--no-sandbox'] },
-      settings: { preset: undefined, formFactor: 'mobile', throttlingMethod: 'simulate', budgetsPath: './budget.json' },
+      settings: { preset: undefined, formFactor: 'mobile', throttlingMethod: 'simulate' },
       url: [
         'http://localhost:3000/login',
         'http://localhost:3000/onboarding',
@@ -26,11 +28,9 @@ module.exports = {
         'categories:accessibility': ['error', { minScore: 1, aggregationMethod: 'median-run' }],
         'categories:best-practices': ['error', { minScore: 1, aggregationMethod: 'median-run' }],
         'categories:seo': ['error', { minScore: 1, aggregationMethod: 'median-run' }],
-        'first-contentful-paint': ['error', { maxNumericValue: 1000 }],
-        'largest-contentful-paint': ['error', { maxNumericValue: 1500 }],
-        'total-blocking-time': ['error', { maxNumericValue: 50 }],
-        'cumulative-layout-shift': ['error', { maxNumericValue: 0.01 }],
         'speed-index': ['error', { maxNumericValue: 1500 }],
+        // byte/request-count limits and FCP/LCP/TBT/CLS come from budget.json
+        ...budgetAssertions(),
       },
     },
     upload: { target: 'temporary-public-storage' },
