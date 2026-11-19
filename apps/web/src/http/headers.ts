@@ -18,7 +18,8 @@ export function securityHeaders(nonce: string): Record<string, string> {
     "frame-ancestors 'none'",
     "form-action 'self'",
     "require-trusted-types-for 'script'",
-    'trusted-types hearth',
+    // "default" is created only by slip.js and only lets the same-origin OCR worker through (FR-TXN-06)
+    'trusted-types hearth default',
     ...(config.secureCookies ? ['upgrade-insecure-requests'] : []),
   ].join('; ');
   const h: Record<string, string> = {

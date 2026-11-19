@@ -11,6 +11,7 @@ import { money, date, text, oneOf, uuidOrNull, requireUuid, scope, cipher, ciphe
 import { createTransaction, applyLines } from '../services/finance.ts';
 import { sanitize, MAX_ATTACHMENT } from '../services/attachments.ts';
 import { registry } from '../services/plugins.ts';
+import { OCR_BASE } from '../http/static.ts';
 import { parseMoney, isIsoDate } from '@hearth/engine';
 
 const SPLIT_ROWS = 4;
@@ -31,6 +32,20 @@ function categoryOptions(ctx: Ctx, cats: any[], kind?: string) {
   return cats.filter((c) => !kind || c.kind === kind).map((c) => ({ value: c.id, label: c.parent ? `${c.parent} › ${c.name}` : c.name, group: ctx.t(`txn.kind.${c.kind}`) }));
 }
 
+/**
+ * FR-TXN-06: "read a slip" — OCR on the device (slip.js) pre-fills the form. Hidden until JS shows it.
+ * The file input has no name, so the slip is never submitted, uploaded or stored.
+ */
+function slipReader(ctx: Ctx) {
+  return html`<div class="slip-reader" hidden data-slip data-ocr="${OCR_BASE}"
+      data-msg-reading="${ctx.t('txn.slip_reading')}" data-msg-done="${ctx.t('txn.slip_done')}" data-msg-none="${ctx.t('txn.slip_none')}" data-msg-fail="${ctx.t('txn.slip_fail')}"
+      data-l-amount="${ctx.t('txn.amount')}" data-l-date="${ctx.t('txn.date')}" data-l-payee="${ctx.t('txn.payee')}" data-l-ref="${ctx.t('txn.slip_ref')}">
+    <label class="btn"><input class="sr-only" type="file" accept="image/*" aria-describedby="slip-hint">${icon('upload')} ${ctx.t('txn.slip_read')}</label>
+    <small class="hint" id="slip-hint">${ctx.t('txn.slip_hint')}</small>
+    <p class="note" role="status" aria-live="polite"></p>
+  </div>`;
+}
+
 function txnForm(ctx: Ctx, lk: Awaited<ReturnType<typeof lookups>>, v: any = {}, action = '/transactions') {
   const kind = v.kind ?? ctx.query.get('kind') ?? 'expense';
   const accOpts = lk.accounts.map((a) => ({ value: a.id, label: a.currency !== ctx.prefs!.currency ? `${a.name} (${a.currency})` : a.name }));
@@ -38,6 +53,7 @@ function txnForm(ctx: Ctx, lk: Awaited<ReturnType<typeof lookups>>, v: any = {},
   const splits: any[] = v.splits ?? [];
   const catOpts = categoryOptions(ctx, lk.categories);
   return form(ctx, action, html`
+    ${!v.id ? slipReader(ctx) : ''}
     <fieldset class="seg" role="radiogroup" aria-label="${ctx.t('txn.kind')}">
       ${KINDS.map((k) => html`<label><input type="radio" name="kind" value="${k}" ${kind === k ? raw('checked') : ''}><span>${ctx.t(`txn.kind.${k}`)}</span></label>`)}
     </fieldset>
@@ -110,7 +126,7 @@ async function saveReceipt(ctx: Ctx, q: import('../db/index.ts').Q, txnId: strin
 get('/transactions/new', { access: 'auth' }, async (ctx) => {
   const lk = await lookups(ctx);
   if (!lk.accounts.length) return redirect(withFlash('/accounts', 'err', 'need_account'));
-  return htmlRes(page(ctx, { title: ctx.t('txn.add'), body: card(null, txnForm(ctx, lk)), scripts: ['qr.js'] }));
+  return htmlRes(page(ctx, { title: ctx.t('txn.add'), body: card(null, txnForm(ctx, lk)), scripts: ['qr.js', 'slip.js'] }));
 });
 
 post('/transactions', { access: 'auth', upload: MAX_ATTACHMENT + 256 * 1024 }, async (ctx) => {

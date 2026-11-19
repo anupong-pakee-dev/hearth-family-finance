@@ -12,7 +12,7 @@ import { migrate } from './db/migrate.ts';
 import { match, HttpError, htmlRes, redirect, type Ctx, type Res, type View } from './http/app.ts';
 import { parseCookies, readBody, parseUrlEncoded, parseMultipart } from './http/body.ts';
 import { securityHeaders } from './http/headers.ts';
-import { loadAssets, serveStatic } from './http/static.ts';
+import { loadAssets, serveStatic, serveOcr } from './http/static.ts';
 import { loadSession, SESSION_COOKIE, CSRF_COOKIE, cookie, randomToken, stepUpFresh } from './security/session.ts';
 import { translator, pickLang, LANGS, type Lang } from './i18n/index.ts';
 import { loadPrefs } from './services/common.ts';
@@ -75,7 +75,7 @@ export async function handle(db: Db, req: IncomingMessage, res: ServerResponse) 
 
   // Static assets first (no session work)
   if (method === 'GET' || method === 'HEAD') {
-    const st = serveStatic(url.pathname, ae);
+    const st = serveStatic(url.pathname, ae) ?? await serveOcr(url.pathname, ae);
     if (st) {
       res.writeHead(st.status, { ...securityHeaders(nonce), ...st.headers, 'content-length': String(st.body.length) });
       res.end(method === 'HEAD' ? undefined : st.body);

@@ -24,7 +24,7 @@ infrastructure outside this repository, listed at the bottom.
 | FR-TXN-01…03, 07…10, 12 | ✅ | incl. "recorded by" filter |
 | FR-TXN-04 split | ✅ | Up to 4 parts per transaction (categories and/or buckets); reports read the `transaction_lines` view |
 | FR-TXN-05 receipts | ✅ | JPEG/PNG/WebP/PDF ≤ 5 MB, type sniffed from content, EXIF/XMP/text chunks stripped, encrypted, served as `attachment` with a sandbox CSP |
-| FR-TXN-06 slip QR / OCR | ✅ | PromptPay (EMVCo) and bank-slip QR read **on the device** (BarcodeDetector) to pre-fill amount, payee and reference; server-side OCR can be added as a plugin |
+| FR-TXN-06 slip QR / OCR | ✅ | "Read a slip": Thai/English OCR (tesseract.js in a Web Worker) reads a transfer-slip photo **on the device** and pre-fills amount, date, payee and reference — the image is never uploaded or stored; PromptPay (EMVCo) / slip QR via BarcodeDetector as before |
 | FR-TXN-11 multi-currency | ✅ | Per-account currency, per-transaction FX rate (manual or latest), reports converted to the main currency; rates entered by admins or fetched by an FX plugin |
 
 ## 4.4 Debts / 4.8 Family debts

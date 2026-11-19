@@ -2,6 +2,12 @@
 
 All notable changes follow [Keep a Changelog](https://keepachangelog.com/) and [SemVer](https://semver.org/).
 
+## [Unreleased]
+### Added
+- "Read a slip" on the new-transaction form: on-device Thai/English OCR fills in the amount, date, payee and
+  reference from a bank transfer slip photo. The slip is never uploaded or stored; the OCR engine (tesseract.js)
+  is served from this instance and downloaded only when a slip is picked
+
 ## [0.2.0] — 2026-11-18
 ### Added
 - Analytics page: range picker, drill-down, Sankey, category trends, net worth over time, calendar heatmap

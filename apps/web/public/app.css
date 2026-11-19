@@ -167,3 +167,5 @@ body.privacy .amt,body.privacy .stat-value,body.privacy .hero-amount{letter-spac
 .range-bar{display:flex;flex-wrap:wrap;gap:.5rem;align-items:end;margin-bottom:1rem}.range-bar .seg{flex-wrap:wrap}.range-bar .field{min-width:9rem}
 .inline-form{display:flex;gap:.35rem;flex-wrap:wrap;align-items:center}.inline-form input{width:9rem;min-height:36px}.split-row{padding-bottom:.5rem;border-bottom:1px dashed var(--border)}
 .alt-login{display:flex;flex-direction:column;gap:.5rem;margin-top:1rem}.alt-login:not(:has(.btn:not([hidden]))) {margin:0}
+.slip-reader{display:flex;flex-direction:column;gap:.35rem;padding:.75rem;border:1px dashed var(--border2);border-radius:12px}.slip-reader[hidden]{display:none}
+.slip-reader label.btn{align-self:flex-start;position:relative}.slip-reader label.btn:focus-within{outline:2px solid var(--primary);outline-offset:2px}.slip-reader[aria-busy=true] label.btn{opacity:.6;cursor:progress}.slip-reader .note:empty{display:none}

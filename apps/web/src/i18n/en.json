@@ -1154,5 +1154,12 @@
   "colors.sample_expense": "Electricity",
   "colors.save": "Save colours",
   "colors.reset": "Reset to default",
-  "colors.default_note": "The default is the Sage palette. Colours apply to your account only."
+  "colors.default_note": "The default is the Sage palette. Colours apply to your account only.",
+  "txn.slip_read": "Read a slip",
+  "txn.slip_hint": "Pick a transfer slip photo to fill in the amount, date and payee · read on your device, never uploaded or stored",
+  "txn.slip_reading": "Reading the slip… (the first time downloads a ~5 MB reader)",
+  "txn.slip_done": "Filled in {fields} · please check before saving",
+  "txn.slip_none": "Couldn't read this image. Try a clearer one, or enter the details yourself",
+  "txn.slip_fail": "Couldn't read the slip. Please enter the details yourself",
+  "txn.slip_ref": "reference"
 }
