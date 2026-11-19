@@ -1,0 +1,19 @@
+{
+  "name": "Hearth Family Finance",
+  "short_name": "Hearth",
+  "description": "จัดการเงินทั้งบ้าน แบ่งก้อน ออม ลงทุน ปลดหนี้ไปด้วยกัน",
+  "lang": "th",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f6f4ef",
+  "theme_color": "#1f6656",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "บันทึกรายการ", "url": "/transactions/new" },
+    { "name": "หนี้", "url": "/debts" }
+  ]
+}

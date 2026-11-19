@@ -1,0 +1,67 @@
+# One-command install (NFR-OPS-01):
+#   node deploy/setup.mjs      # generates secrets — there are no default passwords (NFR-SEC-32)
+#   docker compose up -d
+# Put a TLS reverse proxy in front (see docs/hardening.md). The database port is never published.
+
+name: hearth
+
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres_admin
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
+    secrets: [db_password]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./deploy/postgres-init.sh:/docker-entrypoint-initdb.d/10-hearth.sh:ro
+    networks: [internal]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres_admin -d hearth"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    security_opt: ["no-new-privileges:true"]
+    # no "ports:" — the database is reachable only from the app network
+
+  app:
+    image: ghcr.io/hearth-family-finance/hearth:latest
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db: { condition: service_healthy }
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgres://hearth@db:5432/hearth
+      HEARTH_DB_PASSWORD_FILE: /run/secrets/db_password
+      HEARTH_MASTER_KEYS_FILE: /run/secrets/master_keys
+      HEARTH_BACKUP_DIR: /backups
+    secrets: [db_password, master_keys]
+    volumes:
+      - backups:/backups
+    ports:
+      - "127.0.0.1:3000:3000"   # expose to the local reverse proxy only
+    networks: [internal, web]
+    read_only: true
+    tmpfs: ["/tmp:size=64m,mode=1777"]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    user: "65532:65532"
+
+secrets:
+  db_password:
+    file: ./deploy/secrets/db_password
+  master_keys:
+    file: ./deploy/secrets/master_keys
+
+volumes:
+  pgdata:
+  backups:
+
+networks:
+  internal:
+    internal: true
+  web: {}

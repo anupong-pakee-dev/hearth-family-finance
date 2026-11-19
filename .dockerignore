@@ -1,0 +1,11 @@
+node_modules
+data
+.env
+deploy/secrets
+.git
+.github
+.lighthouse
+.lighthouseci
+docs
+**/test
+*.md

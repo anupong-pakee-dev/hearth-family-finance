@@ -1,0 +1,39 @@
+# Release: signed image + SBOM + SLSA provenance (NFR-SEC-29)
+name: release
+on:
+  push:
+    tags: ["v*"]
+permissions:
+  contents: read
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    permissions: { contents: read, packages: write, id-token: write, attestations: write }
+    outputs:
+      digest: ${{ steps.push.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with: { registry: ghcr.io, username: "${{ github.actor }}", password: "${{ secrets.GITHUB_TOKEN }}" }
+      - id: push
+        uses: docker/build-push-action@v6
+        with:
+          push: true
+          tags: ghcr.io/${{ github.repository }}:${{ github.ref_name }}
+          sbom: true
+          provenance: mode=max
+      - uses: sigstore/cosign-installer@v3
+      - run: cosign sign --yes ghcr.io/${{ github.repository }}@${{ steps.push.outputs.digest }}
+      - uses: actions/attest-build-provenance@v2
+        with: { subject-name: "ghcr.io/${{ github.repository }}", subject-digest: "${{ steps.push.outputs.digest }}", push-to-registry: true }
+
+  dast:
+    # NFR-SEC-27: OWASP ZAP baseline against the freshly built image
+    needs: image
+    runs-on: ubuntu-latest
+    steps:
+      - run: docker run -d --name hearth -p 3000:3000 -e HEARTH_MASTER_KEYS=ci:$(openssl rand -base64 32) -e HEARTH_SECURE_COOKIES=false ghcr.io/${{ github.repository }}@${{ needs.image.outputs.digest }}
+      - uses: zaproxy/action-baseline@v0.14.0
+        with: { target: "http://localhost:3000", fail_action: true }

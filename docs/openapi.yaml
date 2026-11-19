@@ -1,0 +1,81 @@
+openapi: 3.1.0
+info:
+  title: Hearth Family Finance API
+  version: 0.2.0
+  description: |
+    Session-cookie authenticated JSON API. Write requests need the `X-CSRF-Token` header (the session's
+    CSRF token, embedded in every page as `_csrf`). Amounts are integer strings in minor units (satang).
+  license: { name: MIT, identifier: MIT }
+servers: [{ url: / }]
+paths:
+  /healthz:
+    get:
+      summary: Health check
+      security: []
+      responses: { '200': { description: OK } }
+  /api/v1/summary:
+    get:
+      summary: Current-cycle totals, net worth, emergency runway, debt-free date, 12-month series
+      responses:
+        '200': { description: OK }
+        '401': { description: Not signed in }
+  /api/v1/transactions:
+    get:
+      summary: List transactions (newest first)
+      parameters:
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 500, default: 100 } }
+        - { name: before, in: query, schema: { type: string, format: date } }
+      responses: { '200': { description: OK } }
+    post:
+      summary: Create a transaction
+      parameters:
+        - { name: X-CSRF-Token, in: header, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [kind, amount, account_id]
+              properties:
+                kind: { type: string, enum: [income, expense, transfer] }
+                amount: { type: string, example: '120.50', description: Decimal major units }
+                date: { type: string, format: date }
+                account_id: { type: string, format: uuid }
+                to_account_id: { type: string, format: uuid }
+                category_id: { type: string, format: uuid }
+                bucket_id: { type: string, format: uuid }
+                payee: { type: string }
+                note: { type: string }
+      responses:
+        '201': { description: Created }
+        '403': { description: CSRF failure }
+        '404': { description: Referenced resource not accessible }
+  /api/v1/push/key:
+    get:
+      summary: VAPID public key for Web Push subscriptions
+      responses: { '200': { description: OK } }
+  /api/v1/push/subscribe:
+    post:
+      summary: Register this device's PushSubscription (JSON from PushSubscription.toJSON())
+      parameters: [{ name: X-CSRF-Token, in: header, required: true, schema: { type: string } }]
+      responses: { '201': { description: Created }, '422': { description: Invalid subscription } }
+  /api/v1/push/unsubscribe:
+    post:
+      summary: Remove a subscription by endpoint
+      parameters: [{ name: X-CSRF-Token, in: header, required: true, schema: { type: string } }]
+      responses: { '200': { description: OK } }
+  /api/v1/webauthn/register/options:
+    post:
+      summary: Passkey creation options (requires a recent re-authentication, else 401 with a reauth URL)
+      parameters: [{ name: X-CSRF-Token, in: header, required: true, schema: { type: string } }]
+      responses: { '200': { description: PublicKeyCredentialCreationOptions (base64url fields) }, '401': { description: Re-authentication needed } }
+  /api/v1/webauthn/register/verify:
+    post:
+      summary: Store a new passkey from the attestation response
+      parameters: [{ name: X-CSRF-Token, in: header, required: true, schema: { type: string } }]
+      responses: { '201': { description: Created }, '400': { description: Verification failed } }
+components:
+  securitySchemes:
+    session: { type: apiKey, in: cookie, name: __Host-hearth }
+security: [{ session: [] }]

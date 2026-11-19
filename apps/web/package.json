@@ -1,0 +1,12 @@
+{
+  "name": "@hearth/web",
+  "version": "0.1.0",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@electric-sql/pglite": "0.5.16",
+    "@hearth/engine": "0.1.0",
+    "pg": "8.23.1"
+  }
+}

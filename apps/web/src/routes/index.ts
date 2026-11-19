@@ -1,0 +1,17 @@
+// Route registration order is irrelevant for `:id` params (they only match UUIDs).
+import './auth.ts';
+import './onboarding.ts';
+import './dashboard.ts';
+import './transactions.ts';
+import './accounts.ts';
+import './buckets.ts';
+import './debts.ts';
+import './goals.ts';
+import './invest.ts';
+import './budget.ts';
+import './household.ts';
+import './settings.ts';
+import './admin.ts';
+import './reports.ts';
+import './analytics.ts';
+import './identity.ts';
