@@ -11,6 +11,7 @@ import { makeFmt, inputRate } from '../views/format.ts';
 import { lineChart } from '../views/charts.ts';
 import { parseMoney, parseRateE4, divRound, annuityPayment, flatRate, projectValue, toMajorNumber } from '@hearth/engine';
 import { evaluate, CalcError, FUNCTION_GROUPS, formatNumber } from '../../public/calc.js';
+import { latestRates, myCurrencies } from '../services/fx.ts';
 
 const ERR_CODES = ['empty', 'syntax', 'unknown', 'args', 'div0', 'domain', 'never', 'reserved', 'too_long', 'too_complex', 'invalid'] as const;
 
@@ -39,10 +40,17 @@ function kv(rows: [string, SafeHtml | string, string?][]): SafeHtml {
 get('/calculator', { access: 'auth' }, async (ctx) => {
   const t = ctx.t;
   const expr = (ctx.query.get('q') ?? '').slice(0, 500);
+  // currency codes the person uses become names: 100*usd = that many of the main currency at the latest rate
+  const p = ctx.prefs!;
+  const fxEnv: Record<string, number> = await ctx.as(async (q) => {
+    const m = await latestRates(q, await myCurrencies(q, p.currency, p.fx_watch ?? []), p.currency);
+    return Object.fromEntries([...m].map(([c, r]) => [c.toLowerCase(), r.rate]));
+  });
+  const fxNames = Object.keys(fxEnv);
   let value: number | null = null;
   let error = '';
   if (expr.trim()) {
-    try { value = evaluate(expr).value; } catch (e) { error = t(`calc.err.${e instanceof CalcError && (ERR_CODES as readonly string[]).includes(e.code) ? e.code : 'syntax'}`); }
+    try { value = evaluate(expr, { ...fxEnv }).value; } catch (e) { error = t(`calc.err.${e instanceof CalcError && (ERR_CODES as readonly string[]).includes(e.code) ? e.code : 'syntax'}`); }
   }
   const errAttrs = raw(ERR_CODES.map((c) => ` data-err-${c.replace(/_/g, '-')}="${t(`calc.err.${c}`).replace(/"/g, '&quot;')}"`).join(''));
   const keys = ['7', '8', '9', '/', '(', ')', '4', '5', '6', '*', '^', '%', '1', '2', '3', '-', '⌫', 'C', '0', '.', ';', '+', 'ans', '='];
@@ -52,12 +60,12 @@ get('/calculator', { access: 'auth' }, async (ctx) => {
     title: t('nav.calculator'),
     body: html`${nav(ctx)}
       <div class="calc-layout">
-        <form method="get" action="/calculator" class="card calc" data-calc-page${errAttrs}>
+        <form method="get" action="/calculator" class="card calc" data-calc-page data-rates="${JSON.stringify(fxEnv)}"${errAttrs}>
           <label for="f-calc" class="sr-only">${t('calc.expr')}</label>
           <input id="f-calc" name="q" type="text" value="${expr}" class="calc-input" data-calc-input autocomplete="off" spellcheck="false" autocapitalize="off" maxlength="500" placeholder="2,500 × 12 + 7%" autofocus aria-describedby="f-calc-hint">
           <div class="calc-result" aria-live="polite"><span class="calc-eq" aria-hidden="true">=</span><output for="f-calc" data-calc-out>${value != null ? formatNumber(value) : ''}</output></div>
           <p class="calc-err" role="alert" data-calc-err>${error}</p>
-          <small id="f-calc-hint" class="hint">${t('calc.expr_hint')}</small>
+          <small id="f-calc-hint" class="hint">${t('calc.expr_hint')}${fxNames.length ? html` ${t('calc.fx_hint', { example: `100*${fxNames[0]}`, names: fxNames.join(', '), main: p.currency })} <a href="/currency">${t('nav.currency')}</a>` : ''}</small>
           <div class="calc-keys" data-calc-keys hidden>${keys.map((k) => k === '='
             ? html`<button type="submit" class="btn primary">=</button>`
             : html`<button type="button" class="btn${/[0-9.]/.test(k) ? ' num' : ''}" data-key="${k}"${k === '⌫' ? raw(` aria-label="${t('calc.backspace')}"`) : k === 'C' ? raw(` aria-label="${t('calc.clear')}"`) : ''}>${label(k)}</button>`)}</div>

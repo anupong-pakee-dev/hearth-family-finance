@@ -16,3 +16,4 @@ import './reports.ts';
 import './analytics.ts';
 import './identity.ts';
 import './calculator.ts';
+import './currency.ts';

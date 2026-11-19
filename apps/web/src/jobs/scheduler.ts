@@ -11,6 +11,7 @@ import { netWorth, emergencyStatus, currentCycle, nextDue } from '../services/su
 import { bucketMove } from '../services/finance.ts';
 import { postOccurrence } from '../routes/budget.ts';
 import { createBackup } from '../services/backup.ts';
+import { fxProvider, refreshRates, allPairs } from '../services/fx.ts';
 import { sendPush, type PushSub } from '../services/push.ts';
 import { registry } from '../services/plugins.ts';
 import { fieldCipher, unwrapDataKey } from '../security/keys.ts';
@@ -188,21 +189,8 @@ async function perUserTx(db: Db, userId: string, today: string, mails: Outbox) {
 
 /** Refresh FX rates and plugin-sourced prices (FR-TXN-11, FR-INV-11). Only runs when a plugin is enabled. */
 async function refreshMarketData(db: Db, today: string) {
-  for (const fx of registry.fx.values()) {
-    const pairs = await db.system((q) => q.query<{ cur: string; main: string }>(`
-      select distinct a.currency cur, p.currency main from accounts a join user_preferences p on p.user_id = a.owner_id where a.currency <> p.currency
-      union select distinct s.currency, p.currency from assets s join user_preferences p on p.user_id = s.owner_id where s.currency <> p.currency`));
-    const byMain = new Map<string, string[]>();
-    for (const r of pairs) byMain.set(r.main, [...(byMain.get(r.main) ?? []), r.cur]);
-    for (const [main, curs] of byMain) {
-      try {
-        const rates = await fx.fetchRates(main, curs);
-        for (const [cur, r] of Object.entries(rates)) {
-          if (r > 0) await db.system((q) => q.query(`insert into exchange_rates(base, quote, date, rate, source) values ($1,$2,$3,$4,$5) on conflict (base, quote, date) do update set rate = excluded.rate`, [cur, main, today, (1 / r).toFixed(10), fx.id]));
-        }
-      } catch (e) { log.warn('fx plugin failed', { plugin: fx.id, err: (e as Error).message }); }
-    }
-  }
+  // FX: accounts, assets and everyone's watch-list (services/fx.ts; no-op without an FX plugin)
+  if (fxProvider()) await refreshRates(db, today, await allPairs(db));
   for (const pp of registry.prices.values()) {
     const assets = await db.system((q) => q.query<any>('select id, owner_id, symbol, currency, asset_class from assets where price_source = $1', [pp.id]));
     if (!assets.length) continue;

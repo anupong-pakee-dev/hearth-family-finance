@@ -73,6 +73,7 @@ export interface Prefs {
   tax_limits: Record<string, string>;
   last_summary_sent: string | null;
   colors: Record<string, string>;
+  fx_watch: string[];
 }
 
 export type View = 'mine' | 'household' | 'all';

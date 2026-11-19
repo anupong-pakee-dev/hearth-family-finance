@@ -263,6 +263,9 @@ if (typeof document !== 'undefined') {
     document.querySelector('[data-calc-side]')?.removeAttribute('hidden');
     const KEY = 'hearth.calc.history';
     const env = {};
+    // exchange rates for the person's currencies (usd, eur, …) — same values the server used
+    const seedRates = () => { try { for (const [k, v] of Object.entries(JSON.parse(form.dataset.rates || '{}'))) if (/^[a-z]{3}$/.test(k) && Number.isFinite(v)) env[k] = v; } catch { /* none */ } };
+    seedRates();
     let history = [];
     try { history = JSON.parse(sessionStorage.getItem(KEY) ?? '[]').slice(0, 30); } catch { history = []; }
     try { for (const h of history.slice().reverse()) evaluate(h.expr, env); } catch { /* old entries may no longer parse */ }
@@ -328,6 +331,7 @@ if (typeof document !== 'undefined') {
       history = [];
       try { sessionStorage.removeItem(KEY); } catch { /* ignore */ }
       for (const k of Object.keys(env)) delete env[k];
+      seedRates();
       render();
     });
     render();

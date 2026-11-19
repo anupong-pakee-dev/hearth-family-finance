@@ -183,3 +183,8 @@ body.privacy .amt,body.privacy .stat-value,body.privacy .hero-amount{letter-spac
 .fn-groups{display:grid;gap:1rem 2rem;grid-template-columns:repeat(auto-fill,minmax(min(100%,320px),1fr))}.fn-groups h3{margin-top:.25rem}
 .fn-list{margin:0;display:flex;flex-direction:column;gap:.55rem}.fn-list dt code{font-weight:600;color:var(--text)}.fn-list dd{margin:.1rem 0 0;color:var(--text2);font-size:.88rem}.fn-list dd a{white-space:nowrap}
 .calc-kv{grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-bottom:1rem}.calc-kv .big{grid-column:1/-1}.calc-kv .big strong{font-size:2rem;color:var(--primary-strong)}
+.fx-pair{display:grid;grid-template-columns:1fr auto 1fr;gap:.5rem;align-items:end}.fx-swap{min-width:44px;padding:0;font-size:1.2rem;margin-bottom:1px}
+.fx-result{display:flex;flex-direction:column;gap:.3rem;margin-top:1rem;padding:1rem;border-radius:14px;background:var(--surface2)}.fx-result .btn{align-self:flex-start;margin-top:.35rem}
+.fx-from{color:var(--muted)}.fx-to{font-size:1.9rem;line-height:1.2;color:var(--primary-strong);font-variant-numeric:tabular-nums;word-break:break-word}
+.fx-table th[scope=row] a{font-weight:700;text-decoration:none}.fx-add{margin-top:.85rem}.fx-add select{width:auto;min-width:7rem;min-height:36px}
+.fx-grid{display:grid;gap:1rem;grid-template-columns:1fr;margin-bottom:1rem}.fx-grid .card{margin:0}@media (min-width:1280px){.fx-grid{grid-template-columns:minmax(0,1fr) minmax(0,1.5fr);align-items:start}}

@@ -36,6 +36,7 @@ function navItems(ctx: Ctx): NavItem[] {
     { href: '/household', key: 'nav.household', icon: 'users' },
     { href: '/reports', key: 'nav.reports', icon: 'doc' },
     { href: '/calculator', key: 'nav.calculator', icon: 'calc' },
+    { href: '/currency', key: 'nav.currency', icon: 'fx' },
     { href: '/settings', key: 'nav.settings', icon: 'gear' },
   ].filter((i) => i.show !== false);
 }

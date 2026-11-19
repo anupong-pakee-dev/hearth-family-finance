@@ -4,6 +4,8 @@ import { startApp, Client, options } from './helpers.ts';
 import { queryCounter } from '../src/db/index.ts';
 import { runJobs } from '../src/jobs/scheduler.ts';
 import { _test as csv } from '../src/routes/transactions.ts';
+import { registry } from '../src/services/plugins.ts';
+import { _resetRefreshCooldown } from '../src/services/fx.ts';
 
 /** WCAG 1.3.1: every visible form control needs a label (for=id, wrapping <label> or aria-label). */
 export function unlabeled(html: string): string[] {
@@ -26,7 +28,8 @@ after(async () => { await app.close(); });
 
 const PAGES = ['/', '/analytics', '/analytics?range=12m', '/transactions', '/transactions/new', '/accounts', '/categories', '/debts', '/debts/plan', '/goals', '/emergency', '/budget', '/recurring',
   '/household', '/reports', '/reports/year', '/reports/debt', '/reports/health', '/reports/tax', '/settings', '/settings/colors', '/settings/security', '/notifications', '/more', '/transactions/import',
-  '/calculator', '/calculator?q=1%2B', '/calculator/loan', '/calculator/savings', '/calculator/tax', '/calculator/split'];
+  '/calculator', '/calculator?q=1%2B', '/calculator/loan', '/calculator/savings', '/calculator/tax', '/calculator/split',
+  '/currency', '/currency?amount=100&from=USD&to=THB'];
 
 async function setup(email: string, mode: 'off' | 'partial' | 'full', invest: boolean) {
   const c = new Client(app.base);
@@ -230,6 +233,58 @@ test('calculator: works without JavaScript and hands results to a new transactio
   assert.match(await text('/transactions/new?amount=165.50'), /name="amount"[^>]*value="165\.50"/);
   assert.doesNotMatch(await text('/transactions/new?amount=%22%3E%3Cscript%3E'), /value="&quot;/, 'only plain amounts are prefilled');
   assert.match(await text('/transactions/new'), /name="amount"[^>]*data-calc/, 'amount fields accept maths');
+});
+
+test('exchange rates: personal rates, converter, update now, privacy and calculator names', async () => {
+  const today = new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 10); // Asia/Bangkok, like the app
+  const a = await setup('fx-a@hearth.test', 'off', false);
+  const b = await setup('fx-b@hearth.test', 'off', false);
+  const text = async (c: Client, path: string) => { const r = await c.get(path); assert.equal(r.status, 200, path); return r.text; };
+  const uid = async (email: string) => (await app.db.system((q) => q.one<{ id: string }>('select id from users where email = $1', [email])))!.id;
+
+  // no rate yet: say so instead of silently converting 1:1
+  assert.equal((await a.post('/currency/watch', { cur: 'USD', op: 'add' }, '/currency')).status, 303);
+  let page = await text(a, '/currency?amount=100&from=USD&to=THB');
+  assert.match(page, /No rate yet/);
+  assert.match(page, /class="flash warn" role="alert">No exchange rate for USD/);
+  assert.match(page, /Automatic rate updates are off/);
+
+  // my own rate drives the converter, the calculator and hearth_fx (net worth, new transactions)
+  assert.equal((await a.post('/currency/rate', { cur: 'USD', rate: '35.5', date: today }, '/currency')).status, 303);
+  assert.match(await text(a, '/currency?amount=100&from=USD&to=THB'), /3,550\.00 THB/);
+  assert.match(await text(a, '/currency?amount=3550&from=THB&to=USD'), /100\.00 USD/);
+  assert.match(await text(a, `/calculator?q=${encodeURIComponent('100*usd')}`), /data-calc-out>3,550</);
+  const fxOf = async (email: string) => Number((await app.db.asUser(await uid(email), (q) => q.one<{ r: string }>(`select hearth_fx('USD', 'THB')::text r`)))!.r);
+  assert.equal(await fxOf('fx-a@hearth.test'), 35.5);
+  assert.equal(await fxOf('fx-b@hearth.test'), 1, 'nobody else sees my rate');
+
+  // "update now" through the FX plugin (fake provider: no network in tests)
+  registry.fx.set('test-fx', { id: 'test-fx', name: 'Test FX', fetchRates: async (_base, quotes) => Object.fromEntries(quotes.map((q) => [q, q === 'USD' ? 1 / 36 : 0.5])) });
+  try {
+    _resetRefreshCooldown();
+    let r = await a.post('/currency/refresh', {}, '/currency');
+    assert.match(r.location ?? '', /ok=fx_updated/);
+    r = await a.post('/currency/refresh', {}, '/currency');
+    assert.match(r.location ?? '', /err=fx_recent/, 'cooled down');
+    assert.equal(await fxOf('fx-a@hearth.test'), 35.5, 'same day: my own rate still wins');
+    assert.equal(await fxOf('fx-b@hearth.test'), 36, 'reference rate is shared');
+    assert.equal((await a.post('/currency/rate/delete', { cur: 'USD', date: today }, '/currency')).status, 303);
+    assert.equal(await fxOf('fx-a@hearth.test'), 36);
+    page = await text(a, '/currency?amount=100&from=USD&to=THB');
+    assert.match(page, /3,600\.00 THB/);
+    assert.match(page, /Test FX/);
+    assert.match(page, /Update rates now/);
+  } finally { registry.fx.delete('test-fx'); _resetRefreshCooldown(); }
+
+  // bad input is refused; watch-list removal works
+  const refused = async (path: string, body: Record<string, string>) => assert.match((await a.post(path, body, '/currency')).location ?? '', /err=invalid/, path);
+  await refused('/currency/rate', { cur: 'usd;', rate: '35' });
+  await refused('/currency/rate', { cur: 'USD', rate: '-1' });
+  await refused('/currency/watch', { cur: 'THB', op: 'add' }); // the main currency is not a foreign currency
+  assert.equal(await fxOf('fx-a@hearth.test'), 36, 'refused input changed nothing');
+  assert.equal((await a.post('/currency/watch', { cur: 'USD', op: 'remove' }, '/currency')).status, 303);
+  assert.match(await text(a, '/currency'), /Your accounts all use your main currency/);
+  void b;
 });
 
 test('CSV parsing handles quotes, BOM, semicolons and Buddhist-era dates', () => {
