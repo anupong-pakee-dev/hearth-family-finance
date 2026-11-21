@@ -8,7 +8,7 @@ No server? See [Deploy on Render + Neon (free tier)](deploy-render-neon.md).
 
 ## Install
 ```bash
-git clone https://github.com/hearth-family-finance/hearth-family-finance.git
+git clone https://github.com/anupong-pakee-dev/hearth-family-finance.git
 ```
 
 ```bash
@@ -74,3 +74,15 @@ Set `HEARTH_KEY_PROVIDER=vault` (`VAULT_ADDR`, `VAULT_TOKEN_FILE`, `VAULT_KV_PAT
 ## E-mail
 By default mail is written as `.eml` files to the data directory (`HEARTH_MAIL_TRANSPORT=outbox`); point your
 MTA/relay at that directory, or contribute an SMTP transport adapter.
+
+To send real mail through [Resend](https://resend.com) (HTTPS, so it also works where SMTP ports are blocked):
+
+| Variable | Value |
+|---|---|
+| `HEARTH_MAIL_TRANSPORT` | `resend` |
+| `HEARTH_RESEND_API_KEY` | API key with *Sending access* (or `HEARTH_RESEND_API_KEY_FILE` for a Docker secret) |
+| `HEARTH_MAIL_FROM` | `Hearth <no-reply@your-verified-domain>` |
+
+Verify your domain in Resend first. Until then only `onboarding@resend.dev` works as the sender, and Resend
+delivers it only to the address of your own Resend account. Failed sends are logged (status and Resend's error)
+and never block the request that triggered them.

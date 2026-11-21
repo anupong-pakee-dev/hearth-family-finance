@@ -45,9 +45,11 @@ export const config = {
   sessionIdleMinutes: int('HEARTH_SESSION_IDLE_MINUTES', 30),
   sessionMaxDays: int('HEARTH_SESSION_MAX_DAYS', 7),
   trustProxy: process.env.HEARTH_TRUST_PROXY === 'true',
-  /** Mail transport: "outbox" writes .eml files to dataDir/outbox (default). */
+  /** Mail transport: "outbox" writes .eml files to dataDir/outbox (default); "resend" uses the Resend API. */
   mailTransport: process.env.HEARTH_MAIL_TRANSPORT ?? 'outbox',
-  mailFrom: process.env.HEARTH_MAIL_FROM ?? 'Hearth <no-reply@localhost>',
+  mailFrom: process.env.HEARTH_MAIL_FROM || 'Hearth <no-reply@localhost>',
+  /** Resend API key, from env or HEARTH_RESEND_API_KEY_FILE (Docker secret). */
+  resendApiKey: process.env.HEARTH_RESEND_API_KEY_FILE ? readFileSync(process.env.HEARTH_RESEND_API_KEY_FILE, 'utf8').trim() : (process.env.HEARTH_RESEND_API_KEY ?? ''),
   /** Opt-in online breached-password check via k-anonymity (NFR-SEC-02). Off by default. */
   hibpOnline: process.env.HEARTH_HIBP_ONLINE === 'true',
   telemetry: false, // NFR-PRV-01: there is no telemetry.

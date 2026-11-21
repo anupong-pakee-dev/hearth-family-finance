@@ -29,3 +29,12 @@ services:
       # Rely on Neon's restore window + Settings → Export instead.
       - key: HEARTH_BACKUP_INTERVAL_HOURS
         value: "0"
+      # E-mail through Resend (HTTPS API). Leave HEARTH_RESEND_API_KEY empty to keep mail off.
+      - key: HEARTH_MAIL_TRANSPORT
+        value: resend
+      - key: HEARTH_RESEND_API_KEY
+        sync: false
+      # Must use a domain verified in Resend, e.g. "Hearth <no-reply@mail.example.com>".
+      # Without one, "Hearth <onboarding@resend.dev>" only delivers to your own Resend account address.
+      - key: HEARTH_MAIL_FROM
+        sync: false

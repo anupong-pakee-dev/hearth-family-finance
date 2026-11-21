@@ -125,7 +125,7 @@ export function guestPage(ctx: Ctx, o: { title: string; body: SafeHtml; scripts?
   <a class="brand big" href="/" aria-label="Hearth Family Finance">${icon('logo')}<span>Hearth <small>Family Finance</small></span></a>
   <p class="tagline">${ctx.t('app.tagline')}</p>
   <section class="card guest-card"><h1>${o.title}</h1>${flash(ctx)}${o.body}</section>
-  <p class="foot"><a href="/lang?l=${ctx.lang === 'th' ? 'en' : 'th'}">${ctx.lang === 'th' ? 'English' : 'ภาษาไทย'}</a> · <a href="https://github.com/hearth-family-finance/hearth-family-finance" rel="noopener">Open source · MIT</a></p>
+  <p class="foot"><a href="/lang?l=${ctx.lang === 'th' ? 'en' : 'th'}">${ctx.lang === 'th' ? 'English' : 'ภาษาไทย'}</a> · <a href="https://github.com/anupong-pakee-dev/hearth-family-finance" rel="noopener">Open source · MIT</a></p>
 </main>
 </body></html>`;
 }

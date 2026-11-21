@@ -33,6 +33,14 @@ node -e "console.log('k' + new Date().getFullYear() + 'a:' + require('crypto').r
    - `HEARTH_BASE_URL` — `https://<service-name>.onrender.com` (update it if you add a custom domain later)
 4. Deploy. The first build takes a few minutes; open the URL and register — the first account becomes admin.
 
+## 4. E-mail with Resend (optional, needed for password reset)
+1. Sign up at resend.com → **Domains → Add Domain** and add the DNS records it shows at your DNS provider.
+   Without a domain you can only send from `onboarding@resend.dev`, and only to your own Resend account address.
+2. **API Keys → Create API Key** with *Sending access*.
+3. In Render → **Environment** set `HEARTH_RESEND_API_KEY` and `HEARTH_MAIL_FROM`
+   (e.g. `Hearth <no-reply@mail.example.com>`), then save — Render redeploys.
+4. Test with **Forgot password** on the login page; problems show up in Render **Logs** as `resend rejected message`.
+
 ## How it behaves on free plans
 | Topic | What happens | Mitigation |
 |---|---|---|
@@ -40,7 +48,7 @@ node -e "console.log('k' + new Date().getFullYear() + 'a:' + require('crypto').r
 | Background jobs (recurring items, alerts, snapshots) | Run only while awake: 5 s after wake-up, then every 15 min | Jobs catch up on the next wake. To keep them on schedule, point a free uptime pinger at `/healthz` every 10–14 min (keeps Neon awake too, so it uses more Neon compute hours) |
 | Neon suspends the database when idle | Adds a second or two to the first query | — |
 | Container disk is ephemeral | File backups and the mail outbox would vanish on restart, so scheduled backups are off (`HEARTH_BACKUP_INTERVAL_HOURS=0`) | Use Neon's point-in-time restore, plus **Settings → Export** (JSON) regularly |
-| E-mail | Only the `outbox` transport exists, so no e-mail is actually sent | Use in-app / Web Push notifications |
+| E-mail | Sent through Resend once `HEARTH_RESEND_API_KEY` and `HEARTH_MAIL_FROM` are set (see below); without a key nothing is sent | Use in-app / Web Push notifications until then |
 
 ## Updating
 Push to the connected branch — Render rebuilds and redeploys; pending migrations run on start.

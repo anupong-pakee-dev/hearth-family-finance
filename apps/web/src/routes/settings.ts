@@ -3,6 +3,7 @@
  */
 import { get, post, htmlRes, redirect, withFlash, download, safeNext, HttpError, type Ctx } from '../http/app.ts';
 import { html, raw } from '../views/html.ts';
+import { qrSvg } from '../views/qrcode.ts';
 import { page, icon, csrfField } from '../views/layout.ts';
 import { field, input, select, form, postButton, card, checkbox, rateInput, meter } from '../views/ui.ts';
 import { donut } from '../views/charts.ts';
@@ -269,7 +270,8 @@ get('/settings/security', { access: 'auth' }, async (ctx) => {
   if (pending && !ctx.user!.totp_enabled) {
     const u = await ctx.db.system((q) => q.one<any>('select totp_secret_enc from users where id = $1', [ctx.user!.id]));
     const secret = cipher(ctx).dec(u.totp_secret_enc);
-    setup = html`<ol class="steps-list"><li>${t('mfa.step1')}</li><li>${t('mfa.step2')}<br><code class="secret">${secret.match(/.{1,4}/g)?.join(' ')}</code><br><input class="copy" readonly value="${otpauthUrl(secret, ctx.user!.email)}" aria-label="otpauth URL"></li><li>${t('mfa.step3')}</li></ol>
+    const url = otpauthUrl(secret, ctx.user!.email);
+    setup = html`<ol class="steps-list"><li>${t('mfa.step1')}</li><li>${t('mfa.step2')}<a class="totp-qr" href="${url}">${raw(qrSvg(url, t('mfa.qr_label')))}</a>${t('mfa.step2_manual')}<br><code class="secret">${secret.match(/.{1,4}/g)?.join(' ')}</code><br><input class="copy" readonly value="${url}" aria-label="otpauth URL"></li><li>${t('mfa.step3')}</li></ol>
       ${form(ctx, '/settings/security/totp/confirm', field(t('auth.code'), input({ name: 'code', inputmode: 'numeric', autocomplete: 'one-time-code', required: true, maxlength: 6 }), { id: 'f-code' }), { submit: t('mfa.enable') })}`;
   }
   return htmlRes(page(ctx, {
