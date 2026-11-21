@@ -13,6 +13,17 @@ import { log } from '../log.ts';
 
 const RESEND_URL = 'https://api.resend.com/emails';
 
+/**
+ * Whether this server can actually deliver e-mail. Features that depend on it (password reset, e-mail
+ * verification, e-mail invites and alerts) are shown disabled when it cannot. "outbox" counts only when an
+ * operator chose it explicitly (and relays the files); the implicit default delivers nothing.
+ */
+export function mailEnabled(): boolean {
+  if (config.mailTransport === 'resend') return !!config.resendApiKey;
+  if (config.mailTransport === 'outbox') return !!process.env.HEARTH_MAIL_TRANSPORT;
+  return false;
+}
+
 export async function sendMail(to: string, subject: string, text: string) {
   if (config.mailTransport === 'outbox') return writeOutbox(to, subject, text);
   if (config.mailTransport === 'resend') return sendResend(to, subject, text);

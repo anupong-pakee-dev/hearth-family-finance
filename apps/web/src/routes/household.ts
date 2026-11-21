@@ -3,7 +3,7 @@
  */
 import { get, post, htmlRes, redirect, withFlash, HttpError, type Ctx } from '../http/app.ts';
 import { html } from '../views/html.ts';
-import { page, icon } from '../views/layout.ts';
+import { page, guestPage, icon } from '../views/layout.ts';
 import { field, input, select, form, postButton, empty, card } from '../views/ui.ts';
 import { makeFmt, type Fmt } from '../views/format.ts';
 import { debtTerms, nextDue } from '../services/summary.ts';
@@ -11,7 +11,7 @@ import { simulatePlan, minimumBudget, type PlanDebt } from '@hearth/engine';
 import { text, oneOf, requireUuid } from '../services/common.ts';
 import { randomToken, sha256 } from '../security/session.ts';
 import { audit } from '../security/audit.ts';
-import { sendMail } from '../services/mail.ts';
+import { sendMail, mailEnabled } from '../services/mail.ts';
 import { config } from '../config.ts';
 
 const SHARED_TABLES = ['accounts', 'categories', 'buckets', 'transactions', 'transaction_splits', 'bucket_movements', 'debts', 'debt_rate_schedule', 'debt_responsibilities', 'debt_payments', 'goals', 'goal_contributions', 'portfolios', 'investment_transactions', 'recurring_rules'];
@@ -33,7 +33,7 @@ get('/household', { access: 'auth' }, async (ctx) => {
   return htmlRes(page(ctx, {
     title: ctx.t('nav.household'),
     body: html`
-      ${newLink && /^[\w-]{20,60}$/.test(newLink) ? html`<div class="flash ok" role="status"><p>${ctx.t('hh.invite_created')}</p><input class="copy" readonly value="${config.baseUrl}/household/join?token=${newLink}" aria-label="${ctx.t('hh.invite_link')}"></div>` : ''}
+      ${newLink && /^[\w-]{20,60}$/.test(newLink) ? html`<div class="flash ok" role="status"><p>${ctx.t('hh.invite_created')}</p><input class="copy" readonly value="${inviteUrl(newLink)}" aria-label="${ctx.t('hh.invite_link')}"><p class="note">${ctx.t('hh.invite_link_hint')}</p></div>` : ''}
       ${data.hhs.length ? data.hhs.map((h) => card(h.name, html`<div class="hh-body">
         <ul class="rows">${data.members.filter((m) => m.household_id === h.id).map((m) => html`<li><span>${icon(m.user_id ? 'user' : 'child')} <strong>${m.display_name}</strong> <span class="tag">${ctx.t(`hh.role.${m.role}`)}</span>${m.user_id === ctx.user!.id ? html` <small>(${ctx.t('common.me')})</small>` : ''}</span>
           ${canManage(ctx, h.id) && m.user_id !== ctx.user!.id && m.role !== 'owner' ? html`<form method="post" action="/household/${h.id}/members/${m.id}/role" class="inline"><input type="hidden" name="_csrf" value="${ctx.csrf}">
@@ -43,7 +43,7 @@ get('/household', { access: 'auth' }, async (ctx) => {
         ${(() => { const me = data.members.find((m) => m.household_id === h.id && m.user_id === ctx.user!.id); return me && ctx.prefs!.bucket_mode !== 'off' ? html`<div class="row-actions">${postButton(ctx, `/household/${h.id}/bucket-sharing`, me.joined_bucket_sharing ? ctx.t('hh.leave_buckets') : ctx.t('hh.join_buckets'), { cls: 'sm' })} <small class="note">${ctx.t('hh.bucket_sharing_hint')}</small></div>` : ''; })()}
         ${data.invites.filter((i) => i.household_id === h.id).length ? html`<p class="note">${ctx.t('hh.pending_invites', { n: data.invites.filter((i) => i.household_id === h.id).length })}</p>` : ''}
         ${canManage(ctx, h.id) ? html`<div class="grid2 hh-forms">
-          ${form(ctx, `/household/${h.id}/invite`, html`<h3>${ctx.t('hh.invite')}</h3>${field(ctx.t('auth.email'), input({ name: 'email', type: 'email', id: `f-inv-email-${h.id}` }), { id: `f-inv-email-${h.id}`, hint: ctx.t('hh.invite_email_hint') })}
+          ${form(ctx, `/household/${h.id}/invite`, html`<h3>${ctx.t('hh.invite')}</h3>${mailEnabled() ? field(ctx.t('auth.email'), input({ name: 'email', type: 'email', id: `f-inv-email-${h.id}` }), { id: `f-inv-email-${h.id}`, hint: ctx.t('hh.invite_email_hint') }) : html`<p class="note">${ctx.t('hh.invite_link_only')}</p>`}
             ${field(ctx.t('hh.role_label'), select('role', ['member', 'manager', 'viewer'].map((r) => ({ value: r, label: ctx.t(`hh.role.${r}`) })), 'member', { id: `f-inv-role-${h.id}` }), { id: `f-inv-role-${h.id}` })}`, { submit: ctx.t('hh.create_link') })}
           ${form(ctx, `/household/${h.id}/dependents`, html`<h3>${ctx.t('hh.add_dependent')}</h3><p class="note">${ctx.t('hh.dependent_hint')}</p>${field(ctx.t('auth.name'), input({ name: 'name', required: true, maxlength: 80, id: `f-dep-${h.id}` }), { id: `f-dep-${h.id}` })}`, { submit: ctx.t('common.add') })}
         </div>` : ''}
@@ -108,11 +108,33 @@ post('/household/:hhid/invite', { access: 'auth' }, async (ctx) => {
   const hh = requireUuid(ctx.params.hhid);
   if (!canManage(ctx, hh)) throw new HttpError(404);
   const token = randomToken(24);
-  const email = text(ctx.body.email, 320);
+  const email = mailEnabled() ? text(ctx.body.email, 320) : '';
   const r = oneOf(ctx.body.role, ['member', 'manager', 'viewer'] as const, 'member');
   await ctx.as((q) => q.query(`insert into household_invites(token_hash, household_id, role, email, created_by, expires_at) values ($1,$2,$3,$4,hearth_uid(), now() + interval '7 days')`, [sha256(token), hh, r, email || null]));
-  if (email) await sendMail(email, ctx.t('mail.invite_subject'), ctx.t('mail.invite_body', { name: ctx.user!.display_name, link: `${config.baseUrl}/household/join?token=${token}` }));
+  if (email && mailEnabled()) await sendMail(email, ctx.t('mail.invite_subject'), ctx.t('mail.invite_body', { name: ctx.user!.display_name, link: inviteUrl(token) }));
   return redirect(`/household?invite=${token}`);
+});
+
+const inviteUrl = (token: string) => `${config.baseUrl}/invite?token=${token}`;
+
+/**
+ * Invite link landing (works signed in or out). Signed in → the join page. Signed out → who invited you, then
+ * "create an account" (keeps the invite, so registration works even when sign-ups are closed) or "sign in".
+ */
+get('/invite', { access: 'public' }, async (ctx) => {
+  const token = ctx.query.get('token') ?? '';
+  if (!/^[\w-]{20,60}$/.test(token)) return redirect(withFlash('/login', 'err', 'token_invalid'));
+  const joinPath = `/household/join?token=${token}`;
+  if (ctx.user && !ctx.session!.mfa_pending) return redirect(joinPath);
+  const inv = await ctx.db.system((q) => q.one<any>(`select i.role, h.name, u.display_name inviter from household_invites i join households h on h.id = i.household_id left join users u on u.id = i.created_by where i.token_hash = $1 and i.used_at is null and i.expires_at > now()`, [sha256(token)]));
+  if (!inv) return htmlRes(guestPage(ctx, { title: ctx.t('invite.title'), body: html`<p class="flash err" role="alert">${ctx.t('error.token_invalid')}</p><p class="links"><a href="/login">${ctx.t('auth.back_to_login')}</a></p>` }), 404);
+  return htmlRes(guestPage(ctx, {
+    title: ctx.t('invite.title'),
+    body: html`<p>${ctx.t('invite.intro', { inviter: inv.inviter ?? '?', name: inv.name, role: ctx.t(`hh.role.${inv.role}`) })}</p>
+      <div class="alt-login"><a class="btn primary" href="/register?invite=${token}">${ctx.t('invite.register')}</a>
+      <a class="btn" href="/login?next=${encodeURIComponent(joinPath)}">${ctx.t('invite.login')}</a></div>
+      <p class="note">${ctx.t('invite.note')}</p>`,
+  }));
 });
 
 get('/household/join', { access: 'auth' }, async (ctx) => {

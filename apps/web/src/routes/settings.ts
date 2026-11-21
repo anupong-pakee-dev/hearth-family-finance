@@ -29,6 +29,7 @@ import { DASH_CARDS } from './dashboard.ts';
 import { registry } from '../services/plugins.ts';
 import { vapid } from '../services/push.ts';
 import { jsonRes } from '../http/app.ts';
+import { mailEnabled } from '../services/mail.ts';
 
 export const NOTI_TYPES = ['debt_due', 'budget', 'bucket_negative', 'goal_reached', 'emergency_low', 'household_txn', 'subscription', 'security', 'summary'] as const;
 export const NOTI_CHANNELS = ['inapp', 'email', 'push', 'plugins'] as const;
@@ -43,7 +44,7 @@ get('/settings', { access: 'auth' }, async (ctx) => {
     scripts: ['push.js'],
     actions: html`<a class="btn" href="/settings/security">${icon('lock')} ${t('settings.security')}</a>`,
     body: html`
-      ${!ctx.user!.email_verified_at ? html`<div class="flash warn">${t('auth.verify_pending')} ${postButton(ctx, '/verify/resend', t('auth.resend'), { cls: 'sm' })}</div>` : ''}
+      ${!ctx.user!.email_verified_at ? html`<div class="flash warn">${t('auth.verify_pending')} ${mailEnabled() ? postButton(ctx, '/verify/resend', t('auth.resend'), { cls: 'sm' }) : html`<button class="btn sm" type="button" disabled aria-disabled="true" title="${t('mail.disabled_hint')}">${t('auth.resend')}</button> <span class="mail-off">${t('mail.disabled_hint')}</span>`}</div>` : ''}
       ${card(t('settings.profile'), form(ctx, '/settings/profile', html`<div class="grid2">
         ${field(t('auth.name'), input({ name: 'display_name', value: ctx.user!.display_name, required: true, maxlength: 80 }), { id: 'f-dn' })}
         ${field(t('auth.email'), input({ name: 'email_ro', value: ctx.user!.email, readonly: true }), { id: 'f-email_ro', hint: t('settings.email_change_hint') })}</div>`, { submit: t('common.save') }))}
@@ -77,8 +78,9 @@ get('/settings', { access: 'auth' }, async (ctx) => {
       ${card(t('settings.dashboard_cards'), html`<form method="post" action="/settings/dashboard" class="stack">${csrfField(ctx)}<div class="checks">
         ${DASH_CARDS.map((c) => checkbox('show', t(`settings.card.${c}`), !p.dashboard_hidden.includes(c), c))}</div><div class="actions"><button class="btn primary">${t('common.save')}</button></div></form>`)}
       ${card(t('settings.notifications'), html`<form method="post" action="/settings/notifications" class="stack">${csrfField(ctx)}
-        <div class="table-wrap"><table class="tbl"><thead><tr><th>${t('settings.noti_type')}</th>${NOTI_CHANNELS.map((c) => html`<th>${t(`settings.channel.${c}`)}</th>`)}</tr></thead>
-        <tbody>${NOTI_TYPES.map((ty) => html`<tr><td>${t(`settings.noti.${ty}`)}</td>${NOTI_CHANNELS.map((c) => html`<td><input type="checkbox" name="n_${ty}_${c}" value="1" aria-label="${t(`settings.noti.${ty}`)} · ${t(`settings.channel.${c}`)}" ${yes(p.notify_prefs?.[ty]?.[c] ?? (c === 'inapp' || (c === 'email' && ty === 'security')))}></td>`)}</tr>`)}</tbody></table></div>
+        <div class="table-wrap"><table class="tbl"><thead><tr><th>${t('settings.noti_type')}</th>${NOTI_CHANNELS.map((c) => html`<th${c === 'email' && !mailEnabled() ? raw(` title="${t('mail.disabled_hint')}"`) : ''}>${t(`settings.channel.${c}`)}</th>`)}</tr></thead>
+        <tbody>${NOTI_TYPES.map((ty) => html`<tr><td>${t(`settings.noti.${ty}`)}</td>${NOTI_CHANNELS.map((c) => html`<td><input type="checkbox" name="n_${ty}_${c}" value="1" aria-label="${t(`settings.noti.${ty}`)} · ${t(`settings.channel.${c}`)}" ${yes(p.notify_prefs?.[ty]?.[c] ?? (c === 'inapp' || (c === 'email' && ty === 'security')))} ${c === 'email' && !mailEnabled() ? raw(`disabled title="${t('mail.disabled_hint')}"`) : ''}></td>`)}</tr>`)}</tbody></table></div>
+        ${!mailEnabled() ? html`<p class="mail-off">${t('mail.disabled_hint')}</p>` : ''}
         <div class="actions"><button class="btn primary">${t('common.save')}</button></div></form>
         <h3>${t('settings.push_device')}</h3>
         <p class="note">${t('settings.push_intro')}</p>

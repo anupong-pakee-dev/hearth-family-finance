@@ -12,6 +12,7 @@ import { createUser, sendReset, sendVerification, securityAlert } from '../servi
 import { instanceSettings } from '../services/instance.ts';
 import { LANGS, type Lang } from '../i18n/index.ts';
 import { config } from '../config.ts';
+import { mailEnabled } from '../services/mail.ts';
 
 const EMAIL_RE = /^[^\s@]{1,64}@[^\s@]{1,255}\.[^\s@]{2,}$/;
 
@@ -30,7 +31,24 @@ function loginForm(ctx: Ctx, email = '', providers: { id: string; name: string }
     ${providers.map((p) => html`<a class="btn" href="/auth/oidc/start/${p.id}">${ctx.t('auth.continue_with', { name: p.name })}</a>`)}
     <p class="note" data-passkey-status role="status"></p>
   </div>
-  <p class="links"><a href="/forgot">${ctx.t('auth.forgot')}</a> · <a href="/register">${ctx.t('auth.register')}</a></p>`;
+  <p class="links">${forgotLink(ctx)} · <a href="${registerHref(ctx)}">${ctx.t('auth.register')}</a></p>`;
+}
+
+/** "Forgot password" needs e-mail; without it the link is shown disabled with the reason. */
+function forgotLink(ctx: Ctx) {
+  return mailEnabled()
+    ? html`<a href="/forgot">${ctx.t('auth.forgot')}</a>`
+    : html`<span class="link-disabled" aria-disabled="true" title="${ctx.t('mail.disabled_hint')}">${ctx.t('auth.forgot')}</span>`;
+}
+
+/** When the login was reached from a household invite link, "create account" keeps the invite. */
+function inviteFromNext(ctx: Ctx): string {
+  const m = /^\/household\/join\?token=([\w-]{20,60})$/.exec(safeNext(ctx.query.get('next')));
+  return m ? m[1] : '';
+}
+function registerHref(ctx: Ctx) {
+  const inv = inviteFromNext(ctx);
+  return inv ? `/register?invite=${inv}` : '/register';
 }
 
 get('/login', { access: 'guest' }, async (ctx) => {
@@ -136,7 +154,7 @@ function registerForm(ctx: Ctx, v: { email?: string; name?: string } = {}, invit
     ${field(ctx.t('auth.password'), input({ name: 'password', type: 'password', required: true, autocomplete: 'new-password', min: undefined }), { id: 'f-password', hint: ctx.t('auth.password_rule') })}
     <p class="note">${ctx.t('auth.privacy_consent')}</p>
   `, { submit: ctx.t('auth.create_account') })}
-  <p class="links"><a href="/login">${ctx.t('auth.have_account')}</a></p>`;
+  <p class="links"><a href="${invite ? `/login?next=${encodeURIComponent(`/household/join?token=${invite}`)}` : '/login'}">${ctx.t('auth.have_account')}</a></p>`;
 }
 
 get('/register', { access: 'guest' }, async (ctx) => {
@@ -161,6 +179,9 @@ post('/register', { access: 'guest' }, async (ctx) => {
   if (problem) return again(`password_${problem}`);
   const exists = await ctx.db.system((q) => q.one('select 1 from users where lower(email) = lower($1)', [email]));
   if (exists) {
+    const next = invite ? `/household/join?token=${encodeURIComponent(invite)}` : '';
+    // Without e-mail there is no way to notify the owner, so point to sign-in instead of a mail that never comes.
+    if (!mailEnabled()) return redirect(withFlash(next ? `/login?next=${encodeURIComponent(next)}` : '/login', 'err', 'account_exists'));
     // Do not reveal account existence: behave like success, tell the owner by e-mail instead.
     await sendReset(ctx.db, email, ctx.lang);
     return redirect(withFlash('/login', 'ok', 'check_email'));
@@ -187,6 +208,7 @@ get('/verify', { access: 'public' }, async (ctx) => {
 });
 
 post('/verify/resend', { access: 'auth' }, async (ctx) => {
+  if (!mailEnabled()) return redirect(withFlash('/settings', 'err', 'mail_disabled'));
   if (!hit(`verify:${ctx.user!.id}`, 3, 60 * 60_000)) throw new HttpError(429);
   await sendVerification(ctx.db, ctx.user!.id, ctx.user!.email, ctx.lang);
   return redirect(withFlash('/settings', 'ok', 'check_email'));
@@ -194,10 +216,11 @@ post('/verify/resend', { access: 'auth' }, async (ctx) => {
 
 get('/forgot', { access: 'guest' }, async (ctx) => htmlRes(guestPage(ctx, {
   title: ctx.t('auth.forgot'),
-  body: form(ctx, '/forgot', field(ctx.t('auth.email'), input({ name: 'email', type: 'email', required: true, autocomplete: 'email' }), { id: 'f-email' }), { submit: ctx.t('auth.send_reset') }),
+  body: !mailEnabled() ? html`<p>${ctx.t('auth.forgot_no_mail')}</p><p class="links"><a href="/login">${ctx.t('auth.back_to_login')}</a></p>` : form(ctx, '/forgot', field(ctx.t('auth.email'), input({ name: 'email', type: 'email', required: true, autocomplete: 'email' }), { id: 'f-email' }), { submit: ctx.t('auth.send_reset') }),
 })));
 
 post('/forgot', { access: 'guest' }, async (ctx) => {
+  if (!mailEnabled()) return redirect('/forgot');
   const email = (ctx.body.email ?? '').trim().slice(0, 320);
   if (hit(`forgot:${ctx.ip}`, 5, 60 * 60_000) && hit(`forgot:${email.toLowerCase()}`, 3, 60 * 60_000) && EMAIL_RE.test(email)) await sendReset(ctx.db, email, ctx.lang);
   return redirect(withFlash('/login', 'ok', 'check_email')); // identical response either way

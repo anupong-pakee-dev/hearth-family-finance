@@ -17,7 +17,7 @@ test('NFR-SEC-09: every route declares an access level (deny by default)', () =>
   assert.ok(routes.length > 50);
   for (const r of routes) assert.ok(['public', 'guest', 'mfa', 'auth', 'admin'].includes(r.opts.access), `${r.method} ${r.path}`);
   const publicRoutes = routes.filter((r) => r.opts.access === 'public').map((r) => `${r.method} ${r.path}`).sort();
-  assert.deepEqual(publicRoutes, ['GET /auth/oidc/callback', 'GET /auth/oidc/start/:provider', 'GET /healthz', 'GET /lang', 'GET /reset', 'GET /robots.txt', 'GET /verify', 'POST /logout', 'POST /reset'].sort());
+  assert.deepEqual(publicRoutes, ['GET /auth/oidc/callback', 'GET /auth/oidc/start/:provider', 'GET /healthz', 'GET /invite', 'GET /lang', 'GET /reset', 'GET /robots.txt', 'GET /verify', 'POST /logout', 'POST /reset'].sort());
 });
 
 test('anonymous users are redirected from every authenticated page, API returns 401', async () => {

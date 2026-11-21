@@ -11,6 +11,7 @@ import { barChart, donut, lineChart, ring, thresholdBar } from '../views/charts.
 import { currentCycle, totals, monthlySeries, expenseByCategory, netWorth, emergencyStatus, debtOverview, portfolioValues } from '../services/summary.ts';
 import { savingsRate, healthScore, tierFor, goalProgress, addMonths, todayIso, toMajorNumber, addDays, debtServiceRatio } from '@hearth/engine';
 import { scope, BUCKETS_JOINED } from '../services/common.ts';
+import { mailEnabled } from '../services/mail.ts';
 
 export const DASH_CARDS = ['networth', 'month', 'emergency', 'debt', 'buckets', 'invest', 'goals', 'bills', 'health', 'charts'] as const;
 
@@ -160,7 +161,7 @@ get('/', { access: 'auth' }, async (ctx) => {
   return htmlRes(page(ctx, {
     title: t('nav.dashboard'),
     actions: html`<a class="btn primary" href="/transactions/new">${icon('plus')} ${t('txn.add')}</a>`,
-    body: html`${!ctx.user!.email_verified_at ? html`<p class="flash warn">${t('auth.verify_pending')} <a href="/settings">${t('common.details')}</a></p>` : ''}<div class="dash">${cards}</div>`,
+    body: html`${!ctx.user!.email_verified_at && mailEnabled() ? html`<p class="flash warn">${t('auth.verify_pending')} <a href="/settings">${t('common.details')}</a></p>` : ''}<div class="dash">${cards}</div>`,
     wide: true,
   }));
 });

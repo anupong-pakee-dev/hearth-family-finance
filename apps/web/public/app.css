@@ -80,6 +80,8 @@ fieldset{border:1px solid var(--border);border-radius:14px;padding:.85rem;margin
 .btn.danger{background:var(--bad-fill);border-color:var(--bad-fill);color:#fff}.btn.sm{min-height:36px;padding:.25rem .75rem;font-size:.85rem;border-radius:10px}
 .btn.link{background:none;border:0;color:var(--primary);text-decoration:underline;padding:.25rem .4rem;min-height:36px}
 .btn:disabled{opacity:.6;cursor:progress}
+.btn:disabled[aria-disabled=true],.link-disabled,input:disabled{opacity:.55;cursor:not-allowed}.link-disabled{color:var(--muted);text-decoration:underline dotted;text-underline-offset:.32em}
+.mail-off{color:var(--muted);font-size:.85rem}
 .actions{display:flex;gap:.5rem;flex-wrap:wrap}
 details>summary{cursor:pointer;font-weight:600;min-height:40px;display:flex;align-items:center;gap:.4rem}
 .rows,.plain,.txn-list,.debt-list,.bucket-list,.goal-cards,.goal-rings,.noti-list,.budget-list,.health-list,.more-list,.cat-tree,.cat-tree ul{list-style:none;margin:0;padding:0}
