@@ -8,7 +8,7 @@ import { page, icon, csrfField } from '../views/layout.ts';
 import { field, input, select, form, postButton, card, checkbox, rateInput, meter } from '../views/ui.ts';
 import { donut } from '../views/charts.ts';
 import { PRESETS, sanitize, normalize } from '../../public/theme-colors.js';
-import { makeFmt, inputRate, inputMoney } from '../views/format.ts';
+import { makeFmt, inputRate, inputMoney, maskIp } from '../views/format.ts';
 import { text, oneOf, intIn, rate, cipher, money } from '../services/common.ts';
 
 /** Recovery codes are rendered once in the POST response — never placed in a URL. */
@@ -302,14 +302,6 @@ get('/settings/security', { access: 'auth' }, async (ctx) => {
       ${card(t('settings.security_log'), html`<ul class="rows">${log.map((l) => html`<li><span>${f.date(l.at)} ${new Date(l.at).toLocaleTimeString(f.locale, { hour: '2-digit', minute: '2-digit' })} · ${t(`audit.${l.action}`)}</span><small>IP ${maskIp(l.ip)}</small></li>`)}</ul>`)}`,
   }));
 });
-
-/** Show approximate IP only (NFR-SEC-34). */
-function maskIp(ip: string | null): string {
-  if (!ip) return '—';
-  const v4 = /(\d+)\.(\d+)\.(\d+)\.(\d+)$/.exec(ip);
-  if (v4) return `${v4[1]}.${v4[2]}.x.x`;
-  return ip.split(':').slice(0, 3).join(':') + ':…';
-}
 
 post('/settings/security/totp/start', { access: 'auth' }, async (ctx) => {
   if (ctx.user!.totp_enabled) return redirect('/settings/security');

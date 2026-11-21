@@ -82,7 +82,7 @@ fieldset{border:1px solid var(--border);border-radius:14px;padding:.85rem;margin
 .btn:disabled{opacity:.6;cursor:progress}
 .btn:disabled[aria-disabled=true],.link-disabled,input:disabled{opacity:.55;cursor:not-allowed}.link-disabled{color:var(--muted);text-decoration:underline dotted;text-underline-offset:.32em}
 .mail-off{color:var(--muted);font-size:.85rem}
-.db-meter{height:14px}.db-meter::-webkit-meter-bar{height:14px}.db-figures{display:flex;flex-wrap:wrap;justify-content:space-between;gap:.25rem 1rem;margin:.6rem 0}.warn-text{color:var(--warn)}.db-tables summary{cursor:pointer;color:var(--text2);font-size:.9rem}
+.db-meter{height:14px}.db-meter::-webkit-meter-bar{height:14px}.db-figures{display:flex;flex-wrap:wrap;justify-content:space-between;gap:.25rem 1rem;margin:.6rem 0}.warn-text{color:var(--warn)}.rows.audit-rows li>span:first-child{flex-direction:column;align-items:flex-start;gap:0}.audit-rows .audit-when{color:var(--muted);font-size:.8rem;white-space:nowrap}.db-tables summary{cursor:pointer;color:var(--text2);font-size:.9rem}
 .actions{display:flex;gap:.5rem;flex-wrap:wrap}
 details>summary{cursor:pointer;font-weight:600;min-height:40px;display:flex;align-items:center;gap:.4rem}
 .rows,.plain,.txn-list,.debt-list,.bucket-list,.goal-cards,.goal-rings,.noti-list,.budget-list,.health-list,.more-list,.cat-tree,.cat-tree ul{list-style:none;margin:0;padding:0}

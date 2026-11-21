@@ -90,3 +90,11 @@ export function inputMoney(v: bigint | null | undefined): string {
 export function inputRate(e4: number | null | undefined): string {
   return e4 == null ? '' : formatScaled(BigInt(e4), 4, 0);
 }
+
+/** Show approximate IP only (NFR-SEC-34). */
+export function maskIp(ip: string | null): string {
+  if (!ip) return '—';
+  const v4 = /(\d+)\.(\d+)\.(\d+)\.(\d+)$/.exec(ip);
+  if (v4) return `${v4[1]}.${v4[2]}.x.x`;
+  return ip.split(':').slice(0, 3).join(':') + ':…';
+}

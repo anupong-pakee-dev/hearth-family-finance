@@ -6,7 +6,7 @@ import { get, post, htmlRes, redirect, withFlash, HttpError, type Ctx } from '..
 import { html } from '../views/html.ts';
 import { page, icon } from '../views/layout.ts';
 import { field, input, form, postButton, card, checkbox } from '../views/ui.ts';
-import { makeFmt } from '../views/format.ts';
+import { makeFmt, maskIp } from '../views/format.ts';
 import { requireUuid, intIn } from '../services/common.ts';
 import { audit, verifyChain } from '../security/audit.ts';
 import { instanceSettings, clearSettingsCache } from '../services/instance.ts';
@@ -52,7 +52,8 @@ get('/admin', { access: 'admin' }, async (ctx) => {
     users: await q.query<any>(`select id, email, display_name, is_admin, totp_enabled, disabled, email_verified_at, created_at, delete_requested_at,
         (select max(at) from audit_log a where a.user_id = u.id and a.action = 'login') last_login from users u order by created_at limit 500`),
     chain: await verifyChain(q),
-    events: await q.query<any>(`select at, action, user_id from audit_log where action in ('admin_setting','admin_user','backup','support_access','key_rotation') order by id desc limit 20`),
+    // Security events only (who, what, when, approximate IP) — no financial data (NFR-SEC-12).
+    events: await q.query<any>(`select a.id, a.at, a.action, a.user_id, a.ip, u.display_name, u.email from audit_log a left join users u on u.id = a.user_id order by a.id desc limit 30`),
   }));
   return htmlRes(page(ctx, {
     title: ctx.t('nav.admin'),
@@ -69,7 +70,8 @@ get('/admin', { access: 'admin' }, async (ctx) => {
           <td>${u.id !== ctx.user!.id && !u.delete_requested_at ? html`${postButton(ctx, `/admin/users/${u.id}/disable`, u.disabled ? ctx.t('admin.enable') : ctx.t('admin.disable'), { cls: 'sm' })} ${postButton(ctx, `/admin/users/${u.id}/admin`, u.is_admin ? ctx.t('admin.revoke_admin') : ctx.t('admin.make_admin'), { cls: 'sm link', confirm: ctx.t('common.are_you_sure') })}` : ''}</td></tr>`)}
       </tbody></table></div>`)}
       ${card(ctx.t('admin.audit'), html`<p class="${chain.ok ? 'ok-text' : 'neg'}">${chain.ok ? ctx.t('admin.chain_ok') : ctx.t('admin.chain_broken', { id: chain.brokenAt ?? '?' })}</p>
-        <ul class="rows">${events.map((e) => html`<li><span>${f.date(e.at)} · ${ctx.t(`audit.${e.action}`)}</span></li>`)}</ul>`)}
+        ${events.length ? html`<ul class="rows audit-rows">${events.map((e) => html`<li><span><strong>${ctx.t(`audit.${e.action}`)}</strong><small>${e.user_id ? (e.display_name || e.email || ctx.t('admin.deleted_user')) : ctx.t('admin.system')} · IP ${maskIp(e.ip)}</small></span><small class="audit-when">#${e.id} · ${f.date(e.at)} ${new Date(e.at).toLocaleTimeString(f.locale, { hour: '2-digit', minute: '2-digit' })}</small></li>`)}</ul>` : html`<p class="note">${ctx.t('admin.audit_empty')}</p>`}
+        <p class="note">${ctx.t('admin.audit_note')}</p>`)}
       ${card(ctx.t('admin.support'), grants.length ? html`<ul class="rows">${grants.map((g: any) => html`<li><a href="/admin/support/${g.user_id}">${g.display_name || g.email}</a><small>${ctx.t('support.until', { date: f.date(g.expires_at) })}</small></li>`)}</ul>` : html`<p class="note">${ctx.t('admin.support_none')}</p>`)}
       ${card(ctx.t('admin.oidc'), html`${providers.length ? html`<ul class="rows">${providers.map((p: any) => html`<li><span><strong>${p.name}</strong><small>${p.issuer} · ${p.client_id}${p.allow_signup ? html` · ${ctx.t('admin.oidc_signup')}` : ''}</small></span>${postButton(ctx, `/admin/oidc/${p.id}/delete`, ctx.t('common.remove'), { cls: 'sm link', confirm: ctx.t('common.are_you_sure') })}</li>`)}</ul>` : ''}
         ${form(ctx, '/admin/oidc', html`<div class="grid3">
