@@ -2,7 +2,7 @@
  * System admin (§2.2). Admins manage users and instance settings but NEVER see financial data
  * (NFR-SEC-12): no route here touches a financial table.
  */
-import { get, post, htmlRes, redirect, withFlash, HttpError } from '../http/app.ts';
+import { get, post, htmlRes, redirect, withFlash, HttpError, type Ctx } from '../http/app.ts';
 import { html } from '../views/html.ts';
 import { page, icon } from '../views/layout.ts';
 import { field, input, form, postButton, card, checkbox } from '../views/ui.ts';
@@ -15,10 +15,37 @@ import { keys, seal } from '../security/keys.ts';
 import { config } from '../config.ts';
 import { todayIso } from '@hearth/engine';
 
+/** Human-readable size: B, KB, MB, GB (1024-based, like Neon's console). */
+export function fmtBytes(n: number, locale = 'en'): string {
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  let i = 0;
+  while (n >= 1024 && i < units.length - 1) { n /= 1024; i++; }
+  return `${n.toLocaleString(locale, { maximumFractionDigits: i === 0 ? 0 : 1 })} ${units[i]}`;
+}
+
+/** Database storage: used vs. quota as a bar (green → amber at 70% → red at 90%), plus the largest tables. */
+function dbUsageCard(ctx: Ctx, used: number, tables: { name: string; bytes: string }[]) {
+  const t = ctx.t;
+  const loc = ctx.lang === 'th' ? 'th-TH' : 'en';
+  const quota = config.dbQuotaMb * 1024 * 1024;
+  const pct = quota ? Math.min(100, (used / quota) * 100) : 0;
+  const body = quota
+    ? html`<meter class="db-meter" min="0" max="${quota}" low="${quota * 0.7}" high="${quota * 0.9}" optimum="0" value="${Math.min(used, quota)}" aria-label="${t('admin.db_title')}"></meter>
+      <p class="db-figures"><strong>${t('admin.db_used', { used: fmtBytes(used, loc), quota: fmtBytes(quota, loc), pct: pct.toLocaleString(loc, { maximumFractionDigits: 1 }) })}</strong>
+      <span class="${pct >= 90 ? 'neg' : pct >= 70 ? 'warn-text' : 'ok-text'}">${t('admin.db_left', { left: fmtBytes(Math.max(0, quota - used), loc) })}</span></p>
+      ${pct >= 90 ? html`<p class="flash err" role="alert">${t('admin.db_full_warn')}</p>` : ''}`
+    : html`<p><strong>${t('admin.db_used_only', { used: fmtBytes(used, loc) })}</strong></p><p class="note">${t('admin.db_no_quota')}</p>`;
+  return card(t('admin.db_title'), html`${body}
+    ${tables.length ? html`<details class="db-tables"><summary>${t('admin.db_tables')}</summary><ul class="rows">${tables.map((r) => html`<li><span><code>${r.name}</code></span><span class="amt">${fmtBytes(Number(r.bytes), loc)}</span></li>`)}</ul></details>` : ''}
+    <p class="note">${t('admin.db_note')}</p>`);
+}
+
 get('/admin', { access: 'admin' }, async (ctx) => {
   const f = makeFmt(ctx.prefs, ctx.lang);
   const s = await instanceSettings(ctx.db);
-  const { users, chain, events, providers, rates, grants } = await ctx.db.system(async (q) => ({
+  const { users, chain, events, providers, rates, grants, dbSize, tables } = await ctx.db.system(async (q) => ({
+    dbSize: Number((await q.one<{ n: string }>('select pg_database_size(current_database())::text n'))!.n),
+    tables: await q.query<{ name: string; bytes: string }>(`select c.relname name, pg_total_relation_size(c.oid)::text bytes from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'public' and c.relkind = 'r' order by pg_total_relation_size(c.oid) desc limit 5`),
     providers: await q.query<any>('select id, name, issuer, client_id, allow_signup, enabled from oidc_providers order by name'),
     rates: await q.query<any>('select base, quote, date::text date, rate::text rate, source from exchange_rates order by date desc, base limit 20'),
     grants: await q.query<any>('select g.user_id, g.expires_at, u.display_name, u.email from support_grants g join users u on u.id = g.user_id where g.granted_to = $1 and g.expires_at > now()', [ctx.user!.id]),
@@ -31,6 +58,7 @@ get('/admin', { access: 'admin' }, async (ctx) => {
     title: ctx.t('nav.admin'),
     body: html`
       <p class="note">${icon('lock')} ${ctx.t('admin.no_financial')}</p>
+      ${dbUsageCard(ctx, dbSize, tables)}
       ${card(ctx.t('admin.instance'), form(ctx, '/admin/settings', html`
         ${checkbox('open_registration', ctx.t('admin.open_registration'), s.open_registration === true)}
         ${checkbox('enforce_2fa', ctx.t('admin.enforce_2fa'), s.enforce_2fa === true)}

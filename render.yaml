@@ -29,6 +29,9 @@ services:
       # Rely on Neon's restore window + Settings → Export instead.
       - key: HEARTH_BACKUP_INTERVAL_HOURS
         value: "0"
+      # Storage quota shown on the admin page (Neon Free: 1 GB per project). Change if your plan differs.
+      - key: HEARTH_DB_QUOTA_MB
+        value: "1024"
       # E-mail through Resend (HTTPS API). Leave HEARTH_RESEND_API_KEY empty to keep mail off.
       - key: HEARTH_MAIL_TRANSPORT
         value: resend

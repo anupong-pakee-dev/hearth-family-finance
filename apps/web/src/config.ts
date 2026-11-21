@@ -53,6 +53,8 @@ export const config = {
   /** Opt-in online breached-password check via k-anonymity (NFR-SEC-02). Off by default. */
   hibpOnline: process.env.HEARTH_HIBP_ONLINE === 'true',
   telemetry: false, // NFR-PRV-01: there is no telemetry.
+  /** Database storage quota in MB for the admin usage bar (e.g. 1024 on Neon Free). 0 = unknown, show size only. */
+  dbQuotaMb: int('HEARTH_DB_QUOTA_MB', 0),
   backupDir: process.env.HEARTH_BACKUP_DIR ?? '',
   backupIntervalHours: int('HEARTH_BACKUP_INTERVAL_HOURS', 24),
   logLevel: process.env.LOG_LEVEL ?? (env === 'production' ? 'info' : 'debug'),
