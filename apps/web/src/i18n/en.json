@@ -1328,5 +1328,7 @@
   "invite.note": "The link works once and expires 7 days after it was created.",
   "invite.register": "Create an account",
   "invite.title": "You're invited",
-  "mail.disabled_hint": "Not available: this server can't send e-mail yet."
+  "mail.disabled_hint": "Not available: this server can't send e-mail yet.",
+  "noti.confirm_delete_all": "Delete all notifications?",
+  "noti.delete_all": "Delete all"
 }

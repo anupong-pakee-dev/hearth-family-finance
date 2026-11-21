@@ -114,7 +114,7 @@ export async function handle(db: Db, req: IncomingMessage, res: ServerResponse) 
       const [prefs, hh, unread] = await db.asUser(ctx.user.id, async (q) => [
         await loadPrefs(q),
         await q.query<any>(`select h.id, h.name, m.role, m.id member_id from members m join households h on h.id = m.household_id where m.user_id = hearth_uid() order by h.created_at`),
-        (await q.one<{ n: number }>('select count(*)::int n from notifications where owner_id = hearth_uid() and read_at is null'))?.n ?? 0,
+        (await q.one<{ n: number }>('select count(*)::int n from notifications where owner_id = hearth_uid() and read_at is null and dismissed_at is null'))?.n ?? 0,
       ] as const);
       ctx.prefs = prefs;
       ctx.households = hh;

@@ -144,12 +144,12 @@ post('/reports/tax/limits', { access: 'auth' }, async (ctx) => {
 // ───────────── Notifications (in-app) ─────────────
 get('/notifications', { access: 'auth' }, async (ctx) => {
   const f = makeFmt(ctx.prefs, ctx.lang);
-  const rows = await ctx.as((q) => q.query<any>('select * from notifications where owner_id = hearth_uid() order by created_at desc limit 100'));
+  const rows = await ctx.as((q) => q.query<any>('select * from notifications where owner_id = hearth_uid() and dismissed_at is null order by created_at desc limit 100'));
   return htmlRes(page(ctx, {
     title: ctx.t('nav.notifications'),
-    actions: rows.some((r) => !r.read_at) ? postButton(ctx, '/notifications/read-all', ctx.t('noti.read_all')) : undefined,
+    actions: rows.length ? html`${rows.some((r) => !r.read_at) ? postButton(ctx, '/notifications/read-all', ctx.t('noti.read_all')) : ''} ${postButton(ctx, '/notifications/delete-all', ctx.t('noti.delete_all'), { cls: 'danger sm', confirm: ctx.t('noti.confirm_delete_all') })}` : undefined,
     body: card(null, rows.length ? html`<ul class="noti-list">${rows.map((n) => html`<li class="${n.read_at ? '' : 'unread'}"><span class="noti-kind">${icon(n.kind === 'security' ? 'lock' : n.kind.startsWith('debt') ? 'debt' : n.kind.startsWith('goal') ? 'target' : 'bell')}</span>
-      <span><strong>${n.link || !n.read_at ? html`<a href="/notifications/${n.id}/open">${n.title}</a>` : n.title}</strong>${n.body ? html`<small>${n.body}</small>` : ''}<small>${f.date(n.created_at)}</small></span></li>`)}</ul>` : empty(ctx.t('noti.none'))),
+      <span><strong>${n.link || !n.read_at ? html`<a href="/notifications/${n.id}/open">${n.title}</a>` : n.title}</strong>${n.body ? html`<small>${n.body}</small>` : ''}<small>${f.date(n.created_at)}</small></span>${postButton(ctx, `/notifications/${n.id}/delete`, ctx.t('common.delete'), { cls: 'sm link noti-del' })}</li>`)}</ul>` : empty(ctx.t('noti.none'))),
   }));
 });
 
@@ -161,6 +161,28 @@ get('/notifications/:id/open', { access: 'auth' }, async (ctx) => {
   if (!row) throw new HttpError(404);
   const link = row.link ?? '';
   return redirect(link.startsWith('/') && !link.startsWith('//') && !link.startsWith('/\\') ? link : '/notifications');
+});
+
+/**
+ * Delete one / all notifications. Rows with a dedupe_key are hidden instead of deleted: the scheduler checks that
+ * key so the same alert (e.g. "debt due on …") is not created again on its next run.
+ */
+const DISMISS = `set dismissed_at = now(), read_at = coalesce(read_at, now())`;
+post('/notifications/:id/delete', { access: 'auth' }, async (ctx) => {
+  const id = requireUuid(ctx.params.id);
+  await ctx.as(async (q) => {
+    await q.query(`delete from notifications where id = $1 and owner_id = hearth_uid() and dedupe_key is null`, [id]);
+    await q.query(`update notifications ${DISMISS} where id = $1 and owner_id = hearth_uid() and dedupe_key is not null`, [id]);
+  });
+  return redirect('/notifications');
+});
+
+post('/notifications/delete-all', { access: 'auth' }, async (ctx) => {
+  await ctx.as(async (q) => {
+    await q.query(`delete from notifications where owner_id = hearth_uid() and dedupe_key is null`);
+    await q.query(`update notifications ${DISMISS} where owner_id = hearth_uid() and dedupe_key is not null and dismissed_at is null`);
+  });
+  return redirect(withFlash('/notifications', 'ok', 'deleted'));
 });
 
 post('/notifications/read-all', { access: 'auth' }, async (ctx) => {
