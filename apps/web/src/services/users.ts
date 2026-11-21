@@ -80,14 +80,24 @@ export async function securityAlert(db: Db, userId: string, kind: string, lang: 
 }
 
 /**
- * Account deletion (FR-SET-06, NFR-SEC-18): immediately crypto-shred the data key and lock the account;
- * the scheduler hard-deletes all rows (cascade) within 30 days.
+ * Account deletion (FR-SET-06, NFR-SEC-18): hard-deletes the user and, via ON DELETE CASCADE, every row they own,
+ * in one transaction. Only the append-only audit_log keeps the event (user id, action, IP — no financial data).
+ * Shared households the user created but no longer own are handed to a remaining member first, so the cascade
+ * does not take other people's household with it. The scheduler still purges legacy soft-deleted accounts.
  */
 export async function requestDeletion(db: Db, userId: string, ip: string) {
   await db.system(async (q) => {
-    await q.query('update users set data_key_enc = null, data_key_version = null, disabled = true, delete_requested_at = now(), email = $2 where id = $1', [userId, `deleted+${userId}@invalid`]);
-    await q.query('delete from sessions where user_id = $1', [userId]);
     await audit(q, 'account_delete_requested', userId, {}, ip);
+    await q.query(
+      `update households h set created_by = (
+         select m.user_id from members m
+         where m.household_id = h.id and m.user_id is not null and m.user_id <> $1
+         order by (m.role = 'owner') desc, m.created_at limit 1)
+       where h.created_by = $1
+         and exists (select 1 from members m where m.household_id = h.id and m.user_id is not null and m.user_id <> $1)`,
+      [userId],
+    );
+    await q.query('delete from users where id = $1', [userId]);
   });
   forgetDataKey(userId);
 }

@@ -1019,7 +1019,7 @@
   "settings.data_intro": "Export all your data as JSON/CSV at any time",
   "settings.delete_account": "Delete account permanently",
   "settings.delete_confirm_label": "Type DELETE to confirm",
-  "settings.delete_intro": "Delete your account and all data. Your encryption key is destroyed immediately and data is permanently erased within 30 days. This cannot be undone.",
+  "settings.delete_intro": "Delete your account and all your data. Everything is erased from the database immediately; only a security log entry (no financial data) is kept. Database backups expire on their own schedule. This cannot be undone.",
   "settings.display": "Display",
   "settings.dsr_threshold": "DSR warning threshold",
   "settings.email_change": "Change email",

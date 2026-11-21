@@ -13,7 +13,7 @@ Assets: financial records, credentials, encryption keys, household relationships
 | Admin | **I**: admin reads user finances | No admin route touches financial tables; hearth_app has no rights on `users` | `routes/admin.ts` |
 | Pages | **T**/**E**: XSS | Auto-escaping templates, nonce CSP + strict-dynamic, Trusted Types, no inline handlers or styles | `views/html.ts`, `http/headers.ts` |
 | DB at rest / backups | **I**: stolen disk or backup | Field encryption (account no., notes, creditor, TOTP secret) with per-user keys wrapped by an external master key; backups always encrypted | `security/keys.ts`, `services/backup.ts` |
-| Account deletion | **I**: data remnants | Data key destroyed immediately (crypto-shredding), rows hard-deleted by the scheduler | `services/users.ts`, `jobs/scheduler.ts` |
+| Account deletion | **I**: data remnants | All owned rows hard-deleted in one transaction (cascade); shared households handed to a remaining member first; only the append-only audit_log keeps the event. The scheduler still purges legacy soft-deleted accounts | `services/users.ts`, `jobs/scheduler.ts` |
 | Logs | **I**: secrets in logs | Key-based redaction (passwords, tokens, amounts, account numbers, e-mails), no request bodies logged | `log.ts` |
 | Audit trail | **R**epudiation / **T**ampering | Append-only trigger + SHA-256 hash chain, verified on the admin page | `security/audit.ts` |
 | Availability | **D**oS | Body size limits, rate limits, server-side pagination, bounded simulations (600 months) | `http/body.ts`, engine |
