@@ -34,24 +34,24 @@ get('/household', { access: 'auth' }, async (ctx) => {
     title: ctx.t('nav.household'),
     body: html`
       ${newLink && /^[\w-]{20,60}$/.test(newLink) ? html`<div class="flash ok" role="status"><p>${ctx.t('hh.invite_created')}</p><input class="copy" readonly value="${config.baseUrl}/household/join?token=${newLink}" aria-label="${ctx.t('hh.invite_link')}"></div>` : ''}
-      ${data.hhs.length ? data.hhs.map((h) => card(h.name, html`
+      ${data.hhs.length ? data.hhs.map((h) => card(h.name, html`<div class="hh-body">
         <ul class="rows">${data.members.filter((m) => m.household_id === h.id).map((m) => html`<li><span>${icon(m.user_id ? 'user' : 'child')} <strong>${m.display_name}</strong> <span class="tag">${ctx.t(`hh.role.${m.role}`)}</span>${m.user_id === ctx.user!.id ? html` <small>(${ctx.t('common.me')})</small>` : ''}</span>
           ${canManage(ctx, h.id) && m.user_id !== ctx.user!.id && m.role !== 'owner' ? html`<form method="post" action="/household/${h.id}/members/${m.id}/role" class="inline"><input type="hidden" name="_csrf" value="${ctx.csrf}">
             <label class="sr-only" for="role-${m.id}">${ctx.t('hh.role_label')}</label>${select('role', (m.user_id ? ['manager', 'member', 'viewer'] : ['dependent']).map((r) => ({ value: r, label: ctx.t(`hh.role.${r}`) })), m.role, { id: `role-${m.id}` })}<button class="btn sm">${ctx.t('common.save')}</button></form>
             ${postButton(ctx, `/household/${h.id}/members/${m.id}/remove`, ctx.t('common.remove'), { cls: 'sm link', confirm: ctx.t('hh.confirm_remove') })}` : ''}</li>`)}</ul>
         ${familyDebtSummary(ctx, f, h.id, data.members.filter((m) => m.household_id === h.id), data.debts.filter((d) => d.household_id === h.id))}
-        ${(() => { const me = data.members.find((m) => m.household_id === h.id && m.user_id === ctx.user!.id); return me && ctx.prefs!.bucket_mode !== 'off' ? html`<p class="row-actions">${postButton(ctx, `/household/${h.id}/bucket-sharing`, me.joined_bucket_sharing ? ctx.t('hh.leave_buckets') : ctx.t('hh.join_buckets'), { cls: 'sm' })} <small class="note">${ctx.t('hh.bucket_sharing_hint')}</small></p>` : ''; })()}
+        ${(() => { const me = data.members.find((m) => m.household_id === h.id && m.user_id === ctx.user!.id); return me && ctx.prefs!.bucket_mode !== 'off' ? html`<div class="row-actions">${postButton(ctx, `/household/${h.id}/bucket-sharing`, me.joined_bucket_sharing ? ctx.t('hh.leave_buckets') : ctx.t('hh.join_buckets'), { cls: 'sm' })} <small class="note">${ctx.t('hh.bucket_sharing_hint')}</small></div>` : ''; })()}
         ${data.invites.filter((i) => i.household_id === h.id).length ? html`<p class="note">${ctx.t('hh.pending_invites', { n: data.invites.filter((i) => i.household_id === h.id).length })}</p>` : ''}
-        ${canManage(ctx, h.id) ? html`<div class="grid2">
+        ${canManage(ctx, h.id) ? html`<div class="grid2 hh-forms">
           ${form(ctx, `/household/${h.id}/invite`, html`<h3>${ctx.t('hh.invite')}</h3>${field(ctx.t('auth.email'), input({ name: 'email', type: 'email', id: `f-inv-email-${h.id}` }), { id: `f-inv-email-${h.id}`, hint: ctx.t('hh.invite_email_hint') })}
             ${field(ctx.t('hh.role_label'), select('role', ['member', 'manager', 'viewer'].map((r) => ({ value: r, label: ctx.t(`hh.role.${r}`) })), 'member', { id: `f-inv-role-${h.id}` }), { id: `f-inv-role-${h.id}` })}`, { submit: ctx.t('hh.create_link') })}
           ${form(ctx, `/household/${h.id}/dependents`, html`<h3>${ctx.t('hh.add_dependent')}</h3><p class="note">${ctx.t('hh.dependent_hint')}</p>${field(ctx.t('auth.name'), input({ name: 'name', required: true, maxlength: 80, id: `f-dep-${h.id}` }), { id: `f-dep-${h.id}` })}`, { submit: ctx.t('common.add') })}
         </div>` : ''}
-        <p class="row-actions">${role(ctx, h.id) === 'owner'
+        <div class="row-actions hh-danger">${role(ctx, h.id) === 'owner'
           ? html`${data.members.filter((m) => m.household_id === h.id && m.user_id && m.user_id !== ctx.user!.id).length ? html`<form method="post" action="/household/${h.id}/transfer" class="inline"><input type="hidden" name="_csrf" value="${ctx.csrf}">
                 <label class="sr-only" for="tr-${h.id}">${ctx.t('hh.transfer')}</label>${select('member_id', data.members.filter((m) => m.household_id === h.id && m.user_id && m.user_id !== ctx.user!.id).map((m) => ({ value: m.id, label: m.display_name })), '', { id: `tr-${h.id}` })}<button class="btn sm">${ctx.t('hh.transfer')}</button></form>` : ''}
               ${postButton(ctx, `/household/${h.id}/delete`, ctx.t('hh.delete'), { cls: 'danger sm', confirm: ctx.t('hh.confirm_delete') })}`
-          : postButton(ctx, `/household/${h.id}/leave`, ctx.t('hh.leave'), { cls: 'sm', confirm: ctx.t('hh.confirm_leave') })}</p>`)) : ''}
+          : postButton(ctx, `/household/${h.id}/leave`, ctx.t('hh.leave'), { cls: 'sm', confirm: ctx.t('hh.confirm_leave') })}</div></div>`)) : ''}
       ${!data.hhs.length ? card(null, empty(ctx.t('hh.none'))) : ''}
       ${data.acts.length ? card(ctx.t('hh.activity'), html`<ul class="rows">${data.acts.map((a) => html`<li><span>${f.date(a.at)} · <strong>${a.who ?? '?'}</strong> ${ctx.t(`hh.act.${a.action}`)} ${ctx.t(`hh.entity.${a.entity}`)} ${a.summary}</span></li>`)}</ul>`) : ''}
       ${card(ctx.t('hh.create'), form(ctx, '/household', html`${field(ctx.t('hh.name'), input({ name: 'name', required: true, maxlength: 80, placeholder: ctx.t('hh.name_ph') }), { id: 'f-hh-name' })}

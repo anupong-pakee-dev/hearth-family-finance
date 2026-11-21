@@ -62,8 +62,8 @@ get('/accounts/:id', { access: 'auth' }, async (ctx) => {
         ${checkbox('is_liquid', ctx.t('account.liquid'), a.is_liquid)}</div>`, { submit: ctx.t('common.save') })) : ''}
       ${card(ctx.t('account.reconcile'), form(ctx, `/accounts/${id}/reconcile`, html`<p>${ctx.t('account.reconcile_intro')}</p>
         ${field(ctx.t('account.statement_balance'), moneyInput('actual', inputMoney(a.balance), { required: true }), { id: 'f-actual' })}`, { submit: ctx.t('account.reconcile') }))}
-      ${mine ? html`<p class="row-actions">${postButton(ctx, `/accounts/${id}/archive`, a.archived ? ctx.t('common.unarchive') : ctx.t('common.archive'))}
-        ${postButton(ctx, `/accounts/${id}/delete`, ctx.t('common.delete'), { cls: 'danger sm', confirm: ctx.t('account.confirm_delete') })}</p>` : ''}`,
+      ${mine ? html`<div class="row-actions">${postButton(ctx, `/accounts/${id}/archive`, a.archived ? ctx.t('common.unarchive') : ctx.t('common.archive'))}
+        ${postButton(ctx, `/accounts/${id}/delete`, ctx.t('common.delete'), { cls: 'danger sm', confirm: ctx.t('account.confirm_delete') })}</div>` : ''}`,
   }));
 });
 

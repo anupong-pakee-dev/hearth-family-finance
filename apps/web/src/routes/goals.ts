@@ -168,7 +168,7 @@ get('/goals/:id', { access: 'auth' }, async (ctx) => {
       ${byMember.length ? card(ctx.t('goal.member_share'), html`<ul class="rows">${byMember.map((r: any) => html`<li><span>${r.who}</span>${f.moneyHtml(r.total)}<small>${saved > 0n ? `${(toMajorNumber(r.total) / toMajorNumber(saved) * 100).toFixed(0)}%` : ''}</small></li>`)}</ul>`) : ''}
       ${card(ctx.t('goal.history'), contrib.length ? html`<ul class="rows">${contrib.map((c: any) => html`<li><span>${f.date(c.date)}${c.who ? html` · ${c.who}` : ''}</span>${f.moneyHtml(c.amount, { sign: true })}${postButton(ctx, `/goals/${id}/contributions/${c.id}/delete`, '×', { cls: 'sm link' })}</li>`)}</ul>` : empty(ctx.t('common.no_data')))}
       ${mine ? card(ctx.t('common.edit'), form(ctx, `/goals/${id}/edit`, goalFields(ctx, g, lk), { submit: ctx.t('common.save') })) : ''}
-      ${mine ? html`<p class="row-actions">${postButton(ctx, `/goals/${id}/archive`, ctx.t('common.archive'))} ${postButton(ctx, `/goals/${id}/delete`, ctx.t('common.delete'), { cls: 'danger sm', confirm: ctx.t('common.confirm_delete') })}</p>` : ''}
+      ${mine ? html`<div class="row-actions">${postButton(ctx, `/goals/${id}/archive`, ctx.t('common.archive'))} ${postButton(ctx, `/goals/${id}/delete`, ctx.t('common.delete'), { cls: 'danger sm', confirm: ctx.t('common.confirm_delete') })}</div>` : ''}
       ${disclaimer(ctx)}`,
   }));
 });

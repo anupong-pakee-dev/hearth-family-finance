@@ -280,7 +280,7 @@ get('/settings/security', { access: 'auth' }, async (ctx) => {
     body: html`
       ${card(t('mfa.title'), ctx.user!.totp_enabled
         ? html`<p class="ok-text">${icon('check')} ${t('mfa.on')}</p><p>${t('mfa.codes_left', { n: codesLeft })}</p>
-          <p class="row-actions">${postButton(ctx, '/settings/security/recovery', t('mfa.regen_codes'))} ${postButton(ctx, '/settings/security/totp/disable', t('mfa.disable'), { cls: 'danger sm', confirm: t('mfa.confirm_disable') })}</p>`
+          <div class="row-actions">${postButton(ctx, '/settings/security/recovery', t('mfa.regen_codes'))} ${postButton(ctx, '/settings/security/totp/disable', t('mfa.disable'), { cls: 'danger sm', confirm: t('mfa.confirm_disable') })}</div>`
         : pending ? setup : html`<p>${t('mfa.off')}</p>${postButton(ctx, '/settings/security/totp/start', t('mfa.setup'), { cls: 'primary' })}`)}
       ${card(t('passkey.title'), html`<p class="note">${t('passkey.intro')}</p>
         ${passkeys.length ? html`<ul class="rows">${passkeys.map((k: any) => html`<li><span><strong>${k.name}</strong><small>${t('passkey.added', { date: f.date(k.created_at) })}${k.last_used_at ? html` · ${t('settings.last_seen', { date: f.date(k.last_used_at) })}` : ''}</small></span>${postButton(ctx, `/settings/passkeys/${k.id}/delete`, t('common.remove'), { cls: 'sm link', confirm: t('common.are_you_sure') })}</li>`)}</ul>` : ''}

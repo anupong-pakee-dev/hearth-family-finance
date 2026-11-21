@@ -208,7 +208,7 @@ get('/invest/portfolios/:id', { access: 'auth', module: 'invest' }, async (ctx) 
         ${field(ctx.t('invest.price_source'), select('price_source', [{ value: 'manual', label: ctx.t('invest.price_manual') }, ...[...registry.prices.values()].map((x) => ({ value: x.id, label: x.name }))], 'manual'), { hint: ctx.t('invest.price_source_hint') })}
         ${field(ctx.t('invest.tax_type'), select('tax_type', ['ssf', 'rmf', 'thaiesg', 'other'].map((v) => ({ value: v, label: ctx.t(`invest.tax_type.${v}`) })), '', { empty: '—' }), { hint: ctx.t('invest.tax_type_hint') })}</div>`, { submit: ctx.t('common.add') }))}
       ${card(ctx.t('invest.transactions'), pv.txRows.length ? html`<ul class="rows">${[...pv.txRows].reverse().slice(0, 100).map((t: any) => html`<li><span>${f.date(t.date)} · ${ctx.t(`invest.type.${t.type}`)} · ${assets.find((a: any) => a.id === t.asset_id)?.symbol ?? ''} ${t.units_e8 ? html`· ${f.units(t.units_e8)}` : ''}</span>${f.moneyHtml(t.amount)}${mine ? postButton(ctx, `/invest/txns/${t.id}/delete`, '×', { cls: 'sm link', fields: { back: `/invest/portfolios/${id}` } }) : ''}</li>`)}</ul>` : empty(ctx.t('common.no_data')))}
-      ${mine ? html`<p class="row-actions">${postButton(ctx, `/invest/portfolios/${id}/archive`, ctx.t('common.archive'))}</p>` : ''}
+      ${mine ? html`<div class="row-actions">${postButton(ctx, `/invest/portfolios/${id}/archive`, ctx.t('common.archive'))}</div>` : ''}
       ${disclaimer(ctx)}`,
   }));
 });

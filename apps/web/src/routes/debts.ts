@@ -300,7 +300,7 @@ get('/debts/:id', { access: 'auth' }, async (ctx) => {
         ${canWrite ? form(ctx, `/debts/${id}/rates`, html`<div class="grid2">${field(ctx.t('debt.start_date'), dateInput('from_date', '', true))}${field(ctx.t('debt.rate'), rateInput('rate', '', true))}</div>`, { submit: ctx.t('common.add') }) : ''}`)}
       ${canWrite ? card(ctx.t('debt.update_balance'), form(ctx, `/debts/${id}/adjust`, html`<p class="note">${ctx.t('debt.update_balance_hint')}</p>${field(ctx.t('debt.statement_balance'), moneyInput('balance', inputMoney(d.balance_current), { required: true }), { id: 'f-adj-balance' })}`, { submit: ctx.t('common.save') })) : ''}
       ${d.owner_id === ctx.user!.id ? card(ctx.t('common.edit'), form(ctx, `/debts/${id}/edit`, debtFields(ctx, d, lk, c.dec(d.creditor_enc)), { submit: ctx.t('common.save') })) : ''}
-      ${d.owner_id === ctx.user!.id ? html`<p class="row-actions">${postButton(ctx, `/debts/${id}/delete`, ctx.t('common.delete'), { cls: 'danger sm', confirm: ctx.t('common.confirm_delete') })}</p>` : ''}
+      ${d.owner_id === ctx.user!.id ? html`<div class="row-actions">${postButton(ctx, `/debts/${id}/delete`, ctx.t('common.delete'), { cls: 'danger sm', confirm: ctx.t('common.confirm_delete') })}</div>` : ''}
       ${disclaimer(ctx)}`,
     wide: true,
   }));

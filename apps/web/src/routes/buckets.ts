@@ -167,7 +167,7 @@ get('/buckets/:id', { access: 'auth', module: 'buckets' }, async (ctx) => {
       ${contrib.length ? card(ctx.t('bucket.contributions'), html`<ul class="rows">${contrib.map((c) => html`<li><span>${c.name}</span>${f.moneyHtml(c.total)}</li>`)}</ul>`) : ''}
       ${card(ctx.t('bucket.history'), moves.length ? html`<ul class="rows">${moves.map((m) => html`<li><span>${f.date(m.created_at)} · ${ctx.t(`bucket.kind.${m.kind}`)}${m.payee ? html` · ${m.payee}` : ''}${m.note ? html` · ${m.note}` : ''}</span>${f.moneyHtml(m.amount, { sign: true })}</li>`)}</ul>` : empty(ctx.t('common.no_data')))}
       ${mine ? card(ctx.t('common.edit'), form(ctx, `/buckets/${id}/edit`, bucketFields(ctx, b, accounts, portfolios), { submit: ctx.t('common.save') })) : ''}
-      ${mine ? html`<p class="row-actions">${postButton(ctx, `/buckets/${id}/archive`, ctx.t('common.archive'))} ${postButton(ctx, `/buckets/${id}/delete`, ctx.t('common.delete'), { cls: 'danger sm', confirm: ctx.t('bucket.confirm_delete') })}</p>` : ''}`,
+      ${mine ? html`<div class="row-actions">${postButton(ctx, `/buckets/${id}/archive`, ctx.t('common.archive'))} ${postButton(ctx, `/buckets/${id}/delete`, ctx.t('common.delete'), { cls: 'danger sm', confirm: ctx.t('bucket.confirm_delete') })}</div>` : ''}`,
   }));
 });
 
