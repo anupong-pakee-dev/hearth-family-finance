@@ -3,7 +3,7 @@
  */
 import { get, post, htmlRes, redirect, withFlash, HttpError, type Ctx } from '../http/app.ts';
 import { html, raw, type SafeHtml } from '../views/html.ts';
-import { page, icon } from '../views/layout.ts';
+import { page, icon, csrfField } from '../views/layout.ts';
 import { field, input, moneyInput, rateInput, dateInput, select, form, postButton, empty, card, checkbox, stat, disclaimer, meter } from '../views/ui.ts';
 import { makeFmt, inputMoney, inputRate, type Fmt } from '../views/format.ts';
 import { lineChart, stackedBars } from '../views/charts.ts';
@@ -171,8 +171,8 @@ get('/debts/plan', { access: 'auth' }, async (ctx) => {
       ${card(ctx.t('debt.plan_settings'), html`<form method="get" action="/debts/plan" class="stack"><div class="grid3">
         ${field(ctx.t('debt.monthly_budget'), moneyInput('budget', inputMoney(budget), { required: true }), { id: 'f-budget', hint: ctx.t('debt.min_budget', { amount: f.money(min) }) })}
         ${field(ctx.t('debt.strategy'), select('strategy', ['avalanche', 'snowball', 'custom'].map((v) => ({ value: v, label: ctx.t(`debt.strategy.${v}`) })), strategy))}
-        </div><div class="actions"><button class="btn">${ctx.t('debt.simulate')}</button></div></form>
-        ${form(ctx, '/debts/plan', html`<input type="hidden" name="budget" value="${inputMoney(budget)}"><input type="hidden" name="strategy" value="${strategy}">`, { submit: ctx.t('debt.save_plan') })}`)}
+        </div><div class="actions"><button class="btn">${ctx.t('debt.simulate')}</button><button class="btn primary" type="submit" form="plan-save">${ctx.t('debt.save_plan')}</button></div></form>
+        <form id="plan-save" method="post" action="/debts/plan" hidden>${csrfField(ctx)}<input type="hidden" name="budget" value="${inputMoney(budget)}"><input type="hidden" name="strategy" value="${strategy}"></form>`)}
       ${budget < min ? html`<p class="flash err" role="alert">${ctx.t('debt.budget_short', { amount: f.money(min - budget) })}</p>` : ''}
       ${lowEmergency ? html`<p class="flash warn">${ctx.t('emg.first_hint')}</p>` : ''}
       <section class="stats">
