@@ -4,7 +4,7 @@
 #  - runtime is distroless (no shell, no package manager), runs as non-root
 # Pin both base images by digest in release builds (Dependabot / Renovate keeps them fresh).
 
-FROM node:24-trixie-slim AS deps
+FROM node:25-trixie-slim AS deps
 WORKDIR /app
 ENV NODE_ENV=production
 COPY package.json package-lock.json ./
